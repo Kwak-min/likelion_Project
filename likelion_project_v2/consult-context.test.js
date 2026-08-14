@@ -5,9 +5,11 @@ import {
   buildConsultInput,
   consultationCorrection,
   consultationReset,
+  consultationScopeGuard,
   hasItemSymptomConflict,
   itemDetailRequest,
-  normalizeAuthenticityLikelihood
+  normalizeAuthenticityLikelihood,
+  symptomQuestion
 } from './consult-context.js';
 
 test('consult input keeps the full dialogue before the slot snapshot', () => {
@@ -69,6 +71,34 @@ test('a newly named brand replaces the stale item immediately', () => {
     reply: '구찌의 어떤 제품인가요? 가방, 지갑, 신발처럼 품목과 모델명이나 라인명을 알려주세요.'
   });
   assert.equal(consultationCorrection('롤렉스 서브마리너예요', slots), null);
+});
+
+test('symptom questions only mention structures the identified item has', () => {
+  assert.deepEqual(symptomQuestion('구찌 재키 1961'), {
+    reply: '구찌 재키 1961의 어떤 증상이 있나요? 가죽 오염·변색, 모서리 마모, 스티치 풀림, 형태 변형, 잠금장치·금속 장식 이상, 안감 오염이나 냄새처럼 해당되는 증상을 모두 알려주세요.',
+    quickReplies: ['가죽 오염·변색', '모서리 마모', '스티치 풀림', '잠금장치 이상', '형태 변형']
+  });
+  assert.deepEqual(symptomQuestion('롤렉스 서브마리너 126610LN'), {
+    reply: '롤렉스 서브마리너 126610LN의 어떤 증상이 있나요? 시간이 느리거나 빨라짐, 작동 멈춤, 용두·베젤 이상, 유리 손상, 방수 문제, 브레이슬릿·버클 이상처럼 해당되는 증상을 모두 알려주세요.',
+    quickReplies: ['시간 오차', '작동 멈춤', '용두·베젤 이상', '유리 손상', '브레이슬릿·버클 이상']
+  });
+  assert.doesNotMatch(symptomQuestion('롤렉스 서브마리너').reply, /지퍼|스티치/);
+  assert.doesNotMatch(symptomQuestion('구찌 재키 1961').reply, /용두|베젤|브레이슬릿/);
+});
+
+test('unrelated questions are blocked without answering them', () => {
+  const history = [
+    { role: 'assistant', content: '구찌 지갑의 모델·라인명을 알려주세요. 모델을 모르시면 구매처의 공개 상품 링크를 보내주세요.' },
+    { role: 'user', content: '1+2는?' }
+  ];
+  assert.deepEqual(consultationScopeGuard(history, { item: '구찌 지갑' }), {
+    reply: '상담과 관련된 내용만 안내할 수 있습니다. 구찌 지갑의 모델·라인명을 알려주세요. 모델을 모르시면 구매처의 공개 상품 링크를 보내주세요.',
+    nextSlot: 'item'
+  });
+  assert.notEqual(consultationScopeGuard([
+    history[0],
+    { role: 'user', content: 'GG 마몽이에요' }
+  ], { item: '구찌 지갑' }), history);
 });
 
 test('authenticity likelihood is bounded and confidence-aware', () => {

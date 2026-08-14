@@ -1,6 +1,7 @@
 const WATCH = /시계|워치|롤렉스|오메가|까르띠에|rolex|omega|watch/i;
 const ZIPPER = /지퍼|zipper/i;
 const CHANGE_PRODUCT = /(?:그거|이거|제품|물건|품목).*(?:아니|말고|다른)|(?:아니고|말고).*(?:다른|새)|다른\s*(?:제품|물건|품목)(?:이에요|입니다|로|을|으로)?/i;
+const OUT_OF_SCOPE = /(?:\d+\s*[+\-*/×÷]\s*\d+)|(?:날씨|뉴스|번역|코딩|코드|프로그래밍|숙제|문제\s*풀|주식|코인|맛집|영화|노래|게임|정치|스포츠).*(?:뭐|어때|알려|해줘|추천|는\?)/i;
 const BRANDS = [
   ['롤렉스', /롤렉스|rolex/i],
   ['구찌', /구찌|gucci/i],
@@ -71,6 +72,20 @@ export function consultationCorrection(message, slots = {}) {
   };
 }
 
+export function consultationScopeGuard(history, slots = {}) {
+  const messages = Array.isArray(history) ? history : [];
+  const latestUser = [...messages].reverse().find(message => message?.role === 'user')?.content || '';
+  if (!Object.keys(slots).length || !OUT_OF_SCOPE.test(latestUser)) return null;
+  const latestQuestion = [...messages].reverse().find(message => message?.role === 'assistant')?.content || '';
+  const request = latestQuestion
+    .replace(/^.*?(?=(?:구찌|샤넬|루이비통|롤렉스|오메가|까르띠에|프라다|디올|에르메스|버버리|제품|품목))/s, '')
+    .trim();
+  return {
+    reply: `상담과 관련된 내용만 안내할 수 있습니다. ${request || '현재 상담 중인 제품 정보를 알려주세요.'}`,
+    nextSlot: 'item'
+  };
+}
+
 export function itemDetailRequest(item) {
   const value = String(item || '').trim();
   if (!value || /모르|확인 못|잘 모름/.test(value)) return null;
@@ -81,6 +96,35 @@ export function itemDetailRequest(item) {
     reply: request.reply,
     quickReplies: request.quickReplies
   } : null;
+}
+
+export function symptomQuestion(item) {
+  const value = String(item || '').trim();
+  if (WATCH.test(value)) {
+    return {
+      reply: `${value}의 어떤 증상이 있나요? 시간이 느리거나 빨라짐, 작동 멈춤, 용두·베젤 이상, 유리 손상, 방수 문제, 브레이슬릿·버클 이상처럼 해당되는 증상을 모두 알려주세요.`,
+      quickReplies: ['시간 오차', '작동 멈춤', '용두·베젤 이상', '유리 손상', '브레이슬릿·버클 이상']
+    };
+  }
+  if (/가방|백|재키|마몽|디오니서스|홀스빗|플랩|보이|카푸신|네버풀|스피디|알마|가든\s*파티/i.test(value)) {
+    return {
+      reply: `${value}의 어떤 증상이 있나요? 가죽 오염·변색, 모서리 마모, 스티치 풀림, 형태 변형, 잠금장치·금속 장식 이상, 안감 오염이나 냄새처럼 해당되는 증상을 모두 알려주세요.`,
+      quickReplies: ['가죽 오염·변색', '모서리 마모', '스티치 풀림', '잠금장치 이상', '형태 변형']
+    };
+  }
+  if (/신발|구두|스니커즈|로퍼|부츠/i.test(value)) {
+    return {
+      reply: `${value}의 어떤 증상이 있나요? 밑창 마모, 접착 분리, 가죽 오염·변색, 스크래치, 형태 변형, 안감 손상이나 냄새처럼 해당되는 증상을 모두 알려주세요.`,
+      quickReplies: ['밑창 마모', '접착 분리', '가죽 오염·변색', '스크래치', '형태 변형']
+    };
+  }
+  if (/지갑|카드\s*지갑|반지갑|장지갑/i.test(value)) {
+    return {
+      reply: `${value}의 어떤 증상이 있나요? 모서리 마모, 가죽 오염·변색, 스티치 풀림, 카드 슬롯 늘어남, 잠금장치 이상처럼 해당되는 증상을 모두 알려주세요.`,
+      quickReplies: ['모서리 마모', '가죽 오염·변색', '스티치 풀림', '카드 슬롯 늘어남', '잠금장치 이상']
+    };
+  }
+  return null;
 }
 
 export function normalizeAuthenticityLikelihood(value, needMorePhotos = []) {

@@ -25,9 +25,11 @@ import {
   buildConsultInput,
   consultationCorrection,
   consultationReset,
+  consultationScopeGuard,
   hasItemSymptomConflict,
   itemDetailRequest,
-  normalizeAuthenticityLikelihood
+  normalizeAuthenticityLikelihood,
+  symptomQuestion
 } from './consult-context.js';
 import { devLoginUser } from './dev-login.js';
 import {
@@ -321,6 +323,18 @@ app.post('/api/consult/message', auth, async (req, res) => {
     return res.status(400).json({ error: '상담 정보 형식을 확인해 주세요' });
   }
   const latestUser = [...history].reverse().find(message => message.role === 'user')?.content || '';
+  const scopeGuard = consultationScopeGuard(history, slots);
+  if (scopeGuard) {
+    return res.json({
+      reply: scopeGuard.reply,
+      quick_replies: [],
+      slots,
+      next_slot: scopeGuard.nextSlot,
+      ready_for_search: false,
+      usd: 0,
+      budget_left: budgetLeft()
+    });
+  }
   const correction = consultationCorrection(latestUser, slots);
   if (correction) {
     return res.json({
@@ -367,6 +381,13 @@ app.post('/api/consult/message', auth, async (req, res) => {
       data.reply = detailRequest.reply;
       data.quick_replies = detailRequest.quickReplies;
       data.next_slot = 'item';
+      data.ready_for_search = false;
+    }
+    const item = data.slots?.item || slots.item;
+    const symptoms = symptomQuestion(item);
+    if (mode === 'repair' && symptoms && data.next_slot === 'symptom' && !data.slots?.symptom) {
+      data.reply = symptoms.reply;
+      data.quick_replies = symptoms.quickReplies;
       data.ready_for_search = false;
     }
     if (mode === 'repair' && hasItemSymptomConflict(data.slots?.item || slots.item, data.slots?.symptom)) {
