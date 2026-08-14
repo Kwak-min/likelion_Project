@@ -23,27 +23,39 @@
   --ok:#111110;
   --r:0px;            /* 각 없음 — 에디토리얼 톤 */
   --shadow:0 20px 44px rgba(35,35,28,.18);
+  --tabh:calc(60px + env(safe-area-inset-bottom));   /* 모바일 고정 탭바 높이 */
+  --navh:46px;                                        /* 데스크톱 상단 내비 높이 */
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
-html,body{height:100%}
+html{height:100%;-webkit-text-size-adjust:100%}
 body{
-  background:#d7d6d1;
+  min-height:100%;background:var(--paper);
   font-family:"Helvetica Neue",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Inter","Malgun Gothic",Arial,sans-serif;
   color:var(--ink);font-size:14px;line-height:1.5;
   display:flex;justify-content:center;align-items:flex-start;
+  overflow-x:hidden;                       /* 가로 스크롤 원천 차단 */
 }
+/* 모바일 고정 탭바가 떠 있는 동안 마지막 콘텐츠가 가리지 않도록 */
+body.has-tabbar .app{padding-bottom:var(--tabh)}
 button,input,select,textarea{font:inherit;color:inherit;background:none;border:none;outline:none}
 button{cursor:pointer}
 a{color:inherit;text-decoration:none}
-:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:1px}
+/* 스크린리더 전용 텍스트 */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
+/* 시트가 열려 있는 동안 뒤 페이지가 스크롤되지 않도록 */
+body.sheet-open{overflow:hidden}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
-/* ---------- 앱 프레임 ---------- */
+/* ---------- 앱 프레임 ----------
+   문서 자체가 스크롤합니다. 내부에 중첩 스크롤러를 두면 모바일에서
+   하단 CTA·탭바가 화면 밖으로 밀려 잘리기 때문에 .scroll 은 흐름 요소로 둡니다. */
 .app{
-  width:100%;max-width:440px;min-height:100dvh;background:var(--wht);
-  position:relative;display:flex;flex-direction:column;box-shadow:var(--shadow);overflow:hidden;
+  width:100%;max-width:100%;min-height:100dvh;background:var(--wht);
+  position:relative;display:flex;flex-direction:column;
 }
-.scroll{flex:1;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.scroll{flex:1;min-width:0;min-height:0}
 .scroll::-webkit-scrollbar{width:0}
 
 /* ---------- 마이크로 타이포 ---------- */
@@ -69,19 +81,22 @@ hr.hair{border:none;border-top:1px solid var(--hair);margin:14px 0}
 .topbar .acts{display:flex;gap:14px;align-items:center}
 .topbar .acts svg{width:19px;height:19px;stroke:var(--ink);fill:none;stroke-width:1.4}
 .backbar{display:flex;align-items:center;gap:10px;padding:14px 18px 10px;position:sticky;top:0;background:var(--wht);z-index:30}
-.backbar button.bk{font-size:9.5px;letter-spacing:1.8px;text-transform:uppercase;color:var(--mut)}
+.backbar button.bk{font-size:9.5px;letter-spacing:1.8px;text-transform:uppercase;color:var(--mut);
+  display:inline-flex;align-items:center;min-height:44px;padding:0 12px 0 0;margin:-11px 0}
 .backbar .ttl{font-size:11px;letter-spacing:2.4px;text-transform:uppercase;font-weight:600}
 
-/* ---------- 하단 탭 ---------- */
+/* ---------- 하단 탭 (모바일 고정) ---------- */
 .tabbar{display:flex;justify-content:space-around;align-items:flex-end;padding:9px 6px calc(12px + env(safe-area-inset-bottom));
-  border-top:1px solid var(--hair);background:var(--wht);z-index:30}
+  border-top:1px solid var(--hair);background:var(--wht);z-index:45;
+  position:fixed;left:0;right:0;bottom:0}
 .tabbar button{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;padding:2px 0}
 .tabbar svg{width:19px;height:19px;stroke:#b7b6ae;fill:none;stroke-width:1.4}
 .tabbar em{font-size:8px;font-style:normal;letter-spacing:.6px;color:#b7b6ae}
 .tabbar button.on svg{stroke:var(--ink)}
 .tabbar button.on em{color:var(--ink);font-weight:600}
 .tabbar .mid{margin-top:-14px}
-.tabbar .mid .disc{width:40px;height:40px;border-radius:50%;background:var(--ink);display:grid;place-items:center}
+.tabbar .mid .disc{width:40px;height:40px;border-radius:50%;background:var(--ink);display:grid;place-items:center;
+  box-shadow:0 0 0 5px var(--wht)}
 .tabbar .mid .disc svg{stroke:#fff;stroke-width:1.6;width:20px;height:20px}
 .tabbar .mid em{color:var(--ink)}
 
@@ -142,10 +157,11 @@ hr.hair{border:none;border-top:1px solid var(--hair);margin:14px 0}
 .auth .legal b{color:var(--ink);font-weight:500;border-bottom:1px solid var(--line)}
 
 /* ---------- 홈 ---------- */
-.hero{position:relative;height:250px;overflow:hidden;background:linear-gradient(160deg,#dcdad3,#c5c2b9)}
-.hero .fig{position:absolute;right:-14px;bottom:-10px;opacity:.92}
-.hero .fig svg{width:196px;filter:drop-shadow(0 16px 22px rgba(50,45,38,.22))}
-.hero .ov{position:absolute;left:20px;bottom:22px;right:20px}
+.hero{position:relative;min-height:250px;overflow:hidden;background:linear-gradient(160deg,#dcdad3,#c5c2b9);
+  display:flex;align-items:flex-end}
+.hero .fig{position:absolute;right:-14px;bottom:-10px;opacity:.92;pointer-events:none}
+.hero .fig svg{width:min(196px,44vw);filter:drop-shadow(0 16px 22px rgba(50,45,38,.22))}
+.hero .ov{position:relative;z-index:2;padding:26px 20px 22px;width:100%;max-width:min(560px,74%)}
 .hero .ov .k{font-size:9.5px;letter-spacing:2.2px;text-transform:uppercase;color:#4a4842}
 .hero .ov h2{font-size:25px;line-height:1.16;font-weight:600;margin:9px 0 13px;letter-spacing:-.3px}
 .hero .ov .go{font-size:10px;letter-spacing:2px;text-transform:uppercase;border-bottom:1px solid var(--ink);padding-bottom:3px}
@@ -156,6 +172,14 @@ hr.hair{border:none;border-top:1px solid var(--hair);margin:14px 0}
 .duo h3{font-size:15px;font-weight:600;margin:8px 0 5px;letter-spacing:-.1px}
 .duo p{font-size:10.5px;color:var(--mut);line-height:1.55}
 .duo .arw{font-size:11px;margin-top:11px;letter-spacing:1px}
+/* 둘러보기 헤더 묶음 — 백바 + 검색 + 카테고리 칩 + 필터바를 한 덩어리로 고정 */
+.shophead{position:sticky;top:0;z-index:26;background:var(--wht)}
+.shophead .backbar{position:static}
+/* 모바일 전용 검색 (데스크톱은 상단 내비의 검색창을 씁니다) */
+.msearch{display:flex;align-items:center;gap:9px;padding:0 18px 12px}
+.msearch svg{width:15px;height:15px;stroke:var(--mut);fill:none;stroke-width:1.7;flex:none}
+.msearch input{flex:1;min-width:0;font-size:14px;border:1px solid var(--line);padding:10px 12px}
+@media(min-width:880px){.msearch{display:none}}
 .filt{display:flex;gap:19px;padding:15px 18px 12px;border-bottom:1px solid var(--hair);overflow-x:auto}
 .filt::-webkit-scrollbar{display:none}
 .filt button{font-size:11px;letter-spacing:1.4px;text-transform:uppercase;color:var(--mut);white-space:nowrap}
@@ -163,7 +187,7 @@ hr.hair{border:none;border-top:1px solid var(--hair);margin:14px 0}
 .sect{display:flex;justify-content:space-between;align-items:baseline;padding:18px 18px 10px}
 .sect .t{font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:600}
 .sect .n{font-size:10.5px;color:var(--mut);letter-spacing:1px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:0 2px 8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(150px,44vw),1fr));gap:14px 10px;padding:0 14px 10px}
 .shot{position:relative;display:grid;place-items:center;overflow:hidden;background:linear-gradient(180deg,#f0efec,#e6e4de)}
 .shot.stone{background:linear-gradient(180deg,#edeae4,#e0ddd5)}
 .shot.sage{background:linear-gradient(180deg,#e7ebe4,#d9ded4)}
@@ -197,11 +221,14 @@ hr.hair{border:none;border-top:1px solid var(--hair);margin:14px 0}
 .row{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-top:1px solid var(--hair);font-size:12.5px}
 .row .lk{color:var(--mut);font-size:9.5px;letter-spacing:1.6px;text-transform:uppercase}
 .row .rv{display:flex;align-items:center;gap:8px;text-align:right}
-.stick{display:flex;gap:9px;padding:12px 16px calc(16px + env(safe-area-inset-bottom));border-top:1px solid var(--hair);background:var(--wht)}
+.stick{display:flex;gap:9px;padding:12px 16px calc(16px + env(safe-area-inset-bottom));border-top:1px solid var(--hair);
+  background:var(--wht);position:sticky;bottom:0;z-index:35}
+body.has-tabbar .stick{bottom:var(--tabh)}
 .stick .heart{width:52px;border:1px solid var(--ink);display:grid;place-items:center;flex:none}
 .stick .heart svg{width:18px;height:18px;stroke:var(--ink);fill:none;stroke-width:1.5}
 
-/* ---------- 채팅 ---------- */
+/* ---------- 채팅 (유일하게 앱형 고정 높이 — 입력창을 항상 하단에 고정) ---------- */
+#s-chat.screen.on{height:100dvh;max-height:100dvh;overflow:hidden}
 .chat{display:flex;flex-direction:column;flex:1;min-height:0;background:var(--paper)}
 .chat .head{padding:12px 18px 12px;background:var(--wht);border-bottom:1px solid var(--hair)}
 .chat .head .hl{display:flex;justify-content:space-between;align-items:center}
@@ -213,7 +240,7 @@ hr.hair{border:none;border-top:1px solid var(--hair);margin:14px 0}
 .chat .steps i.done{background:#9d9b93}
 .log{flex:1;overflow-y:auto;padding:18px 16px 8px;display:flex;flex-direction:column;gap:14px}
 .log::-webkit-scrollbar{width:0}
-.msg{max-width:86%;font-size:13px;line-height:1.62;white-space:pre-wrap;word-break:break-word}
+.msg{max-width:min(86%,560px);font-size:13px;line-height:1.62;white-space:pre-wrap;word-break:break-word}
 .msg.ai{align-self:flex-start;background:var(--wht);border:1px solid var(--line);padding:13px 14px}
 .msg.me{align-self:flex-end;background:var(--ink);color:#fff;padding:13px 14px}
 .msg.sys{align-self:center;max-width:100%;text-align:center;font-size:9.5px;letter-spacing:1.5px;
@@ -268,11 +295,14 @@ hr.hair{border:none;border-top:1px solid var(--hair);margin:14px 0}
 
 /* ---------- 감정 씰 ---------- */
 .seals{display:flex;gap:9px;margin:14px 0 2px}
-.seal{flex:1;border:1px solid var(--line);padding:13px 12px;position:relative}
+.seal{flex:1;border:1px solid var(--line);padding:13px 12px;position:relative;text-align:left}
+.seal.selected{background:var(--ink);border-color:var(--ink);color:#fff}
+.seal.selected .st,.seal.selected .seal-copy{color:#e7e5e0}
+.seal.selected .mk{background:#fff;color:var(--ink);border-color:#fff}
 .seal.done{border-color:var(--ink)}
 .seal .st{font-size:8.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--mut)}
-.seal h4{font-size:12.5px;font-weight:600;margin:7px 0 4px}
-.seal p{font-size:10px;color:var(--mut);line-height:1.5}
+.seal-title{display:block;font-size:12.5px;font-weight:600;margin:7px 0 4px}
+.seal-copy{display:block;font-size:10px;color:var(--mut);line-height:1.5}
 .seal .mk{position:absolute;top:11px;right:11px;width:17px;height:17px;border-radius:50%;border:1px solid var(--line);
   display:grid;place-items:center;font-size:9px;color:var(--mut)}
 .seal.done .mk{background:var(--ink);border-color:var(--ink);color:#fff}
@@ -414,7 +444,7 @@ hr.hair{border:none;border-top:1px solid var(--hair);margin:14px 0}
 .tile .was{color:var(--mut);text-decoration:line-through;font-weight:400;font-size:10.5px}
 
 /* ---------- 데스크톱 상단 내비 ---------- */
-.webnav{display:none;align-items:center;gap:26px;padding:0 40px;height:46px;border-bottom:1px solid var(--hair);
+.webnav{display:none;align-items:center;gap:26px;padding:0 40px;height:var(--navh);border-bottom:1px solid var(--hair);
   background:var(--wht);position:sticky;top:0;z-index:40}
 .webnav a{font-size:11.5px;letter-spacing:.3px;color:#55554e;white-space:nowrap}
 .webnav a.on{color:var(--ink);font-weight:600}
@@ -436,10 +466,10 @@ hr.hair{border:none;border-top:1px solid var(--hair);margin:14px 0}
 .aiblock .h{font-size:8.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--mut);margin-bottom:6px}
 
 /* ---------- 토스트 / 시트 ---------- */
-.toast{position:fixed;left:50%;bottom:86px;transform:translate(-50%,14px);background:var(--ink);color:#fff;
+.toast{position:fixed;left:50%;bottom:calc(var(--tabh) + 18px);transform:translate(-50%,14px);background:var(--ink);color:#fff;
   padding:13px 18px;font-size:11.5px;letter-spacing:.3px;z-index:99;opacity:0;pointer-events:none;transition:.22s;max-width:88%}
 .toast.on{opacity:1;transform:translate(-50%,0)}
-.sheet{position:absolute;inset:0;background:rgba(24,24,20,.42);z-index:60;display:none;align-items:flex-end}
+.sheet{position:fixed;inset:0;background:rgba(24,24,20,.42);z-index:60;display:none;align-items:flex-end}
 .sheet.on{display:flex}
 .sheet .inner{width:100%;background:var(--wht);padding:22px 20px calc(22px + env(safe-area-inset-bottom));max-height:86%;overflow-y:auto}
 .sheet h3{font-size:16px;font-weight:600}
@@ -447,11 +477,21 @@ hr.hair{border:none;border-top:1px solid var(--hair);margin:14px 0}
 .cost{position:fixed;top:8px;right:8px;background:rgba(17,17,16,.86);color:#fff;font-size:9px;letter-spacing:1px;
   padding:6px 9px;z-index:90;font-variant-numeric:tabular-nums;display:none}
 .cost.on{display:block}
+/* ---------- 태블릿(600~879): 폰 프레임을 벗고 콘텐츠 폭을 넓힙니다 ---------- */
+@media(min-width:600px){
+  .grid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:18px 12px;padding:0 18px 12px}
+  .pad{max-width:760px;margin:0 auto;width:100%}
+  .hero{min-height:300px}
+  /* 로그인 카드는 화면 높이를 강제로 채우지 않습니다 (불필요한 세로 스크롤 방지) */
+  .auth{max-width:520px;margin:0 auto;min-height:auto;padding-bottom:40px}
+  .sheet .inner{max-width:600px;margin:0 auto}
+  .seg button,.filt button,.sortlinks button{padding-top:13px;padding-bottom:13px}
+}
 @media(min-width:880px){
-  body{padding:0;align-items:flex-start;background:var(--paper)}
-  .app{max-width:1320px;margin:0 auto;min-height:100vh;box-shadow:none;overflow:visible}
-  .scroll{overflow:visible}
+  body{align-items:flex-start;background:var(--paper)}
+  .app{max-width:1320px;margin:0 auto;min-height:100dvh}
   .cost{position:fixed}
+  #s-chat.screen.on{height:calc(100dvh - var(--navh));max-height:none}
 
   /* 하단 탭 → 상단 내비로 전환 */
   .tabbar{display:none}
@@ -459,20 +499,24 @@ hr.hair{border:none;border-top:1px solid var(--hair);margin:14px 0}
 
   /* 넓은 화면에서 여백을 키우고, 폼류 화면은 가운데로 모읍니다 */
   .topbar,.backbar,.filt,.filtbar,.sortbar,.selectbar{padding-left:40px;padding-right:40px}
-  .hero{height:360px}
-  .duo{padding:0 40px}
+  /* 상단 내비가 sticky 이므로 화면별 헤더는 그 아래에 붙입니다 */
+  .topbar,.backbar,.shophead{top:58px}
+  .hero{min-height:360px}
+  .duo{padding:0 40px;max-width:1180px;margin:0 auto}
   .duo button{padding-top:26px;padding-bottom:24px}
   .sect{padding-left:40px;padding-right:40px}
   .bstrip .bhd{padding-left:40px;padding-right:40px}
   .brow{padding-left:40px;padding-right:40px}
   .grid{padding-left:38px;padding-right:38px;grid-template-columns:repeat(auto-fill,minmax(216px,1fr));gap:20px 16px}
   .tile .shot{aspect-ratio:1/1.06}
-  .stick{padding-left:40px;padding-right:40px}
+  /* 본문이 가운데 정렬이므로 하단 CTA 도 같은 폭으로 맞춥니다 */
+  .stick{padding-left:40px;padding-right:40px;max-width:1000px;margin:0 auto;width:100%}
+  .cost{top:calc(var(--navh) + 10px)}
 
   /* 폼/상세/채팅류는 읽기 좋은 너비로 중앙 고정 */
   .pad{max-width:800px;margin:0 auto;width:100%}
   .pdp{max-width:920px;margin:0 auto;width:100%;display:grid;grid-template-columns:1.05fr 1fr;gap:0 44px;align-items:start}
-  .pdp .heroshot{height:560px;position:sticky;top:70px}
+  .pdp .heroshot{height:560px;position:sticky;top:112px}
   .pdp .info{padding-top:26px}
   #s-chat .chat,#s-chat .backbar{max-width:760px;margin:0 auto;width:100%}
   .auth{max-width:440px;margin:40px auto;padding:44px 32px;border:1px solid var(--line)}
@@ -486,6 +530,103 @@ hr.hair{border:none;border-top:1px solid var(--hair);margin:14px 0}
 @media(min-width:1180px){
   .grid{grid-template-columns:repeat(auto-fill,minmax(228px,1fr))}
 }
+
+/* ---------- 웹사이트형 데스크톱 레이아웃 ----------
+   880px 이상에서는 모바일 앱의 한 줄 카드 흐름 대신, 랜딩 페이지와 넓은 카탈로그를 사용합니다. */
+@media(min-width:880px){
+  body{background:#ecebe6}
+  .app{max-width:1440px;box-shadow:0 0 0 1px rgba(17,17,16,.05)}
+  .webnav{height:58px;padding-left:48px;padding-right:48px;gap:30px}
+  .webnav a{font-size:12px}
+  .webnav .wsearch{max-width:420px;padding:9px 13px}
+  .topbar{display:none}
+  .topbar,.backbar,.filt,.filtbar,.sortbar,.selectbar{padding-left:48px;padding-right:48px}
+  .backbar{min-height:66px;align-items:end;padding-top:18px;padding-bottom:15px}
+  .backbar .ttl{font-size:12px}
+
+  /* 홈 랜딩 */
+  #s-home .scroll{padding-bottom:56px}
+  #s-home .hero{
+    min-height:500px;margin:38px 48px 0;align-items:center;
+    background:linear-gradient(118deg,#dbd8cf 0%,#c6c2b8 53%,#aaa79f 100%);
+  }
+  #s-home .hero:before{
+    content:"RE:GARDE";position:absolute;right:36px;top:26px;
+    font-size:10px;letter-spacing:4px;color:rgba(17,17,16,.43)
+  }
+  #s-home .hero .fig{right:10%;bottom:-13px}
+  #s-home .hero .fig svg{width:380px;max-width:34vw}
+  #s-home .hero .ov{padding:54px 64px;max-width:580px}
+  #s-home .hero .ov .k{font-size:10px;letter-spacing:3px}
+  #s-home .hero .ov h2{font-size:clamp(39px,4vw,61px);line-height:1.05;letter-spacing:-2.2px;margin:16px 0 28px}
+  #s-home .hero .ov .go{font-size:11px;letter-spacing:2.4px;padding-bottom:6px}
+  #s-home .duo{
+    max-width:none;margin:0 48px;padding:0;display:grid;grid-template-columns:1fr 1fr;
+    border:0;gap:14px;transform:translateY(-1px)
+  }
+  #s-home .duo button{
+    min-height:188px;padding:29px 31px 27px;border:1px solid var(--line);
+    background:var(--wht);transition:transform .18s,box-shadow .18s
+  }
+  #s-home .duo button:last-child{border-right:1px solid var(--line)}
+  #s-home .duo button:hover{transform:translateY(-4px);box-shadow:0 16px 28px rgba(22,22,18,.09)}
+  #s-home .duo .n{font-size:9.5px}
+  #s-home .duo h3{font-size:19px;margin-top:12px}
+  #s-home .duo p{font-size:12px;max-width:365px}
+  #s-home .duo .arw{margin-top:19px}
+  .desktop-proof{
+    display:grid;grid-template-columns:minmax(255px,.72fr) minmax(0,1.8fr);gap:62px;
+    margin:42px 48px 52px;padding:36px 0 40px;border-top:1px solid var(--ink);border-bottom:1px solid var(--line)
+  }
+  .desktop-proof .intro h3{font-size:26px;line-height:1.18;font-weight:600;letter-spacing:-1.1px;margin:12px 0}
+  .desktop-proof .intro p{max-width:330px;font-size:12px;line-height:1.75;color:#5c5c54}
+  .proof-steps{display:grid;grid-template-columns:repeat(3,1fr);list-style:none;gap:0}
+  .proof-steps li{min-height:156px;padding:4px 22px 8px;border-left:1px solid var(--line)}
+  .proof-steps span{display:block;font-size:10px;letter-spacing:1.7px;color:var(--mut);margin-bottom:32px}
+  .proof-steps b{display:block;font-size:13px;font-weight:600}
+  .proof-steps p{font-size:11px;line-height:1.65;color:var(--mut);margin-top:8px;max-width:185px}
+  .bstrip{margin:0 48px;padding:22px 0 20px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .bstrip .bhd{padding:0 0 18px}
+  .brow{padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:18px 12px;overflow:visible}
+  .bitem{width:auto}
+  .bitem .bc{width:70px;height:70px;font-size:10px}
+  .bitem span.nm{font-size:10.5px}
+  .sect{padding-left:48px;padding-right:48px;margin-top:10px}
+  .grid{padding-left:48px;padding-right:48px;grid-template-columns:repeat(4,minmax(0,1fr));gap:30px 18px}
+  .tile .shot{aspect-ratio:1/1.08}
+  .tile .shot svg.pr{width:94px}
+  .tile .ti{padding:12px 3px 6px}
+  .tile .br{font-size:9.5px}
+  .tile .nm,.tile .pz{font-size:14px}
+  #s-home .grid{padding-bottom:26px}
+  #s-home .grid + div{padding:6px 48px 0!important;max-width:315px}
+
+  /* 데스크톱 카탈로그 */
+  #s-shop .shophead{border-bottom:1px solid var(--line)}
+  #s-shop .shophead .backbar,#s-shop .filt,#s-shop .filtbar,
+  #s-shop .sortbar,#s-shop .selectbar{max-width:1344px;margin:0 auto}
+  #s-shop .filt{padding-top:12px;padding-bottom:14px}
+  #s-shop .filtbar{padding-top:13px;padding-bottom:13px}
+  #s-shop .sortbar{padding-top:25px}
+  #s-shop .grid{max-width:1344px;margin:0 auto;padding-bottom:48px}
+  #s-shop .selectbar{padding-bottom:16px}
+  .stick{padding-left:48px;padding-right:48px;max-width:1080px}
+  .pad{max-width:980px}
+}
+@media(min-width:1180px){
+  #s-shop .grid{grid-template-columns:repeat(5,minmax(0,1fr))}
+  #s-home .hero{min-height:540px}
+  #s-home .hero .fig svg{width:430px}
+}
+@media(min-width:1400px){
+  .app{max-width:1560px}
+  .webnav{padding-left:64px;padding-right:64px}
+  #s-home .hero,#s-home .duo,.desktop-proof{margin-left:64px;margin-right:64px}
+  .sect,.grid{padding-left:64px;padding-right:64px}
+  .bstrip{margin-left:64px;margin-right:64px}
+  #s-home .grid + div{padding-left:64px!important;padding-right:64px!important}
+}
+@media(max-width:879px){.desktop-proof{display:none}}
 </style>
 </head>
 <body>
@@ -573,6 +714,8 @@ hr.hair{border:none;border-top:1px solid var(--hair);margin:14px 0}
         <div style="margin-top:24px">
           <button class="btn" type="submit" id="authBtn">로그인</button>
           <button class="linkbtn" type="button" onclick="Auth.demo()">데모 계정으로 둘러보기</button>
+          <p class="hint" id="demoNote" hidden style="text-align:center;margin-top:10px">
+            지금은 데모(대본) 모드입니다. 새로고침하면 입력한 내용이 사라집니다.</p>
         </div>
         <p class="legal" id="legalNote" hidden>
           가입하면 <b>이용약관</b>과 <b>개인정보처리방침</b>에 동의하게 됩니다.
@@ -626,6 +769,19 @@ hr.hair{border:none;border-top:1px solid var(--hair);margin:14px 0}
       </button>
     </div>
 
+    <section class="desktop-proof" aria-label="RE:GARDE 서비스 절차">
+      <div class="intro">
+        <div class="eyebrow">The RE:GARDE standard</div>
+        <h3>관리의 기록이<br>다음 가치를 만듭니다.</h3>
+        <p>AI의 1차 분석과 전문 감정사의 실물 확인을 연결해, 매입·수선·구매의 기준을 투명하게 보여드립니다.</p>
+      </div>
+      <ol class="proof-steps">
+        <li><span>01</span><b>AI 1차 분석</b><p>제품 정보와 사진으로 시세·상태를 먼저 확인합니다.</p></li>
+        <li><span>02</span><b>전문가 실물 감정</b><p>정품 여부와 실제 상태를 확인해 금액을 확정합니다.</p></li>
+        <li><span>03</span><b>보증된 거래</b><p>정품 보증과 케어 이력이 남는 거래로 이어집니다.</p></li>
+      </ol>
+    </section>
+
     <div class="bstrip">
       <div class="bhd"><span class="t">대표 브랜드</span><button onclick="Shop.brandSheet()">더보기</button></div>
       <div class="brow" id="homeBrandRow"></div>
@@ -640,9 +796,17 @@ hr.hair{border:none;border-top:1px solid var(--hair);margin:14px 0}
 
 <!-- ══════════════ 3. 둘러보기 ══════════════ -->
 <section class="screen" id="s-shop">
-  <div class="backbar"><span class="ttl">Shop</span></div>
-  <div class="filt" id="shopCatChips"></div>
-  <div class="filtbar" id="shopFilt"></div>
+  <div class="shophead">
+    <div class="backbar"><span class="ttl">Shop</span></div>
+    <div class="msearch">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+      <input id="mSearch" type="search" placeholder="브랜드, 모델명으로 검색" aria-label="상품 검색"
+             onkeydown="if(event.key==='Enter')Shop.search(this.value)">
+      <button class="btn sm" style="width:auto;padding:9px 14px" onclick="Shop.search(document.getElementById('mSearch').value)">검색</button>
+    </div>
+    <div class="filt" id="shopCatChips"></div>
+    <div class="filtbar" id="shopFilt"></div>
+  </div>
   <div class="scroll">
     <div class="sortbar">
       <div class="cnt">총 <b id="shopCount">—</b>건</div>
@@ -744,7 +908,7 @@ hr.hair{border:none;border-top:1px solid var(--hair);margin:14px 0}
       <div class="check on" id="pkAgree" onclick="Auth.tog(this)"><i>✓</i><span>감정 결과에 따라 최종 금액이 달라질 수 있음에 동의합니다 <span class="u mut">필수</span></span></div>
 
       <p class="note" style="margin-top:16px">픽업 후 <b>전문가 2차 감정</b>이 끝나면 최종 금액을 알려 드립니다. 금액에 동의하지 않으면 <b>왕복 배송비 없이</b> 그대로 돌려보내 드립니다.</p>
-      <div style="margin-top:18px"><button class="btn" onclick="Pickup.submit()">픽업 신청 완료</button></div>
+      <div style="margin-top:18px"><button class="btn" id="pkSubmit" onclick="Pickup.submit(this)">픽업 신청 완료</button></div>
     </div>
   </div>
 </section>
@@ -811,10 +975,12 @@ hr.hair{border:none;border-top:1px solid var(--hair);margin:14px 0}
 </nav>
 
 <!-- 시트 -->
-<div class="sheet" id="sheet" onclick="if(event.target===this)Sheet.close()">
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="추가 정보" hidden
+     onclick="if(event.target===this)Sheet.close()">
   <div class="inner" id="sheetInner"></div>
 </div>
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div id="announcer" class="sr-only" role="status" aria-live="polite"></div>
 </div>
 
 <script>
@@ -824,14 +990,14 @@ hr.hair{border:none;border-top:1px solid var(--hair);margin:14px 0}
    서버를 띄운 뒤 API_BASE만 채우면 실제 GPT 호출로 바뀝니다.
    ============================================================ */
 const CONFIG = {
-  API_BASE: '',                 // 예: 'http://localhost:8787'
+  API_BASE: '',                 // 서버가 제공할 때 현재 오리진으로 주입합니다.
   MOCK_DELAY: [420, 900],       // 대본 모드 응답 지연(ms)
   SHOW_COST: true               // 우측 상단 API 비용 미터
 };
 
 const S = {
-  user:null, screen:'auth', history:[], authMode:'login',
-  cart:null, orders:[], cards:[], filter:'all', ordFilter:'all',
+  user:null, token:null, screen:'auth', history:[], authMode:'login',
+  cart:null, orders:[], cards:[], payCard:0, lastAddr:'', filter:'all', ordFilter:'all',
   consult:null, quote:null, cost:0, seq:100,
   /* 둘러보기 필터 상태 */
   fCat:'all', fSub:new Set(), fBrand:new Set(), fGrade:new Set(), fStore:new Set(),
@@ -845,7 +1011,9 @@ const $$ = s => [...document.querySelectorAll(s)];
 const won = n => '₩ ' + Math.round(n).toLocaleString('ko-KR');
 const wonShort = n => n >= 10000000 ? (n/10000000).toFixed(n%10000000===0?0:1)+'천만' :
                       n >= 10000 ? Math.round(n/10000).toLocaleString('ko-KR')+'만' : n.toLocaleString('ko-KR');
-const esc = s => String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const esc = s => String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* 인라인 onclick 안의 JS 문자열로 넣을 값 — 따옴표/역슬래시를 먼저 이스케이프한 뒤 HTML 이스케이프 */
+const jsq = s => esc(String(s??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"));
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const rnd = ([a,b]) => a + Math.random()*(b-a);
 const uid = p => p + (++S.seq);
@@ -857,34 +1025,151 @@ function toast(msg, ms=2100){
   clearTimeout(t._t); t._t = setTimeout(()=>t.classList.remove('on'), ms);
 }
 const Sheet = {
-  open(html){ $('#sheetInner').innerHTML = html; $('#sheet').classList.add('on'); },
-  close(){ $('#sheet').classList.remove('on'); }
+  _prev:null,
+  open(html){
+    const sheet = $('#sheet');
+    Sheet._prev = document.activeElement;
+    $('#sheetInner').innerHTML = html;
+    sheet.hidden = false; sheet.classList.add('on');
+    document.body.classList.add('sheet-open');
+    const title = $('#sheetInner h3');
+    sheet.setAttribute('aria-label', title ? title.textContent.trim() : '추가 정보');
+    A11y.enhance(sheet);
+    /* 열리면 시트 안으로 포커스를 옮깁니다 */
+    (A11y.focusables(sheet)[0] || $('#sheetInner')).focus?.();
+  },
+  close(){
+    const sheet = $('#sheet');
+    if(!sheet.classList.contains('on')) return;
+    sheet.classList.remove('on'); sheet.hidden = true;
+    document.body.classList.remove('sheet-open');
+    Sheet._prev?.focus?.();      // 열기 직전 위치로 포커스 복귀
+    Sheet._prev = null;
+  },
+  isOpen(){ return $('#sheet').classList.contains('on'); }
+};
+
+/* ---------- 접근성 보강 ----------
+   화면 대부분이 innerHTML 로 다시 그려지므로, 역할/키보드 속성은 렌더 후 일괄로 붙입니다. */
+const A11y = {
+  SEL:'.check, .cl-row, .swtch, .chip, .catchip, .bitem, .webnav a',
+  focusables(root){
+    return [...root.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+      .filter(el => !el.disabled && el.offsetParent !== null || el === document.activeElement);
+  },
+  enhance(root = document){
+    root.querySelectorAll('.check, .cl-row').forEach(el => {
+      el.setAttribute('role','checkbox');
+      if(!el.hasAttribute('tabindex')) el.tabIndex = 0;
+      el.setAttribute('aria-checked', el.classList.contains('on') ? 'true' : 'false');
+    });
+    root.querySelectorAll('.swtch').forEach(el => {
+      el.setAttribute('role','switch');
+      if(!el.hasAttribute('tabindex')) el.tabIndex = 0;
+      el.setAttribute('aria-checked', el.classList.contains('on') ? 'true' : 'false');
+    });
+    root.querySelectorAll('.chip, .catchip').forEach(el => {
+      el.setAttribute('aria-pressed', el.classList.contains('on') ? 'true' : 'false');
+    });
+    root.querySelectorAll('.webnav a').forEach(el => {
+      if(!el.hasAttribute('tabindex')) el.tabIndex = 0;
+      if(!el.hasAttribute('role')) el.setAttribute('role','link');
+    });
+    /* 장식용 그래픽은 스크린리더가 읽지 않도록 */
+    root.querySelectorAll('svg:not([aria-hidden])').forEach(s => s.setAttribute('aria-hidden','true'));
+  },
+  announce(msg){ const a = $('#announcer'); if(a) a.textContent = msg; }
 };
 function addCost(usd){
+  if(!CONFIG.API_BASE) return;   // 대본(mock) 모드에는 실제 과금이 없으므로 미터를 띄우지 않습니다
   S.cost += usd;
   if(CONFIG.SHOW_COST){ const c=$('#costmeter'); c.classList.add('on'); c.textContent = 'API $'+S.cost.toFixed(4); }
 }
 
 /* ---------- 라우터 ---------- */
 const TABS = ['home','shop','orders','my'];
+const SCREEN_LABEL = {
+  auth:'로그인', home:'홈', shop:'둘러보기', pdp:'상품 상세', chat:'AI 상담', quote:'AI 1차 리포트',
+  pickup:'픽업 신청', orders:'내 접수', track:'진행 상황', my:'마이페이지', pay:'결제수단',
+  checkout:'결제', admin:'감정사 콘솔'
+};
 function go(name, push=true){
-  if(push && S.screen !== name) S.history.push(S.screen);
+  if(push && S.screen !== name){
+    S.history.push(S.screen);
+    /* 브라우저/모바일 뒤로가기로 이전 화면에 돌아갈 수 있게 합니다 */
+    try{ history.pushState({screen:name}, ''); }catch{}
+  }
   S.screen = name;
   $$('.screen').forEach(el => el.classList.toggle('on', el.id === 's'+'-'+name));
   const isTab = TABS.includes(name);
-  $('#tabbar').hidden = !isTab && name!=='consult';
   $('#tabbar').hidden = !isTab;
+  document.body.classList.toggle('has-tabbar', isTab);
   $$('#tabbar button').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
   $$('#webnav a[data-nav]').forEach(a => a.classList.toggle('on', a.dataset.nav === name));
   const sc = $('#s-'+name)?.querySelector('.scroll'); if(sc) sc.scrollTop = 0;
+  window.scrollTo(0, 0);
   if(name==='home') Shop.renderHome();
   if(name==='shop') Shop.renderShop();
   if(name==='orders') Orders.render();
   if(name==='my') My.render();
   if(name==='pay') Pay.render();
-  if(name==='admin') Admin.render();
+  if(name==='admin') Admin.load();
+  /* 화면 전환을 문서 제목과 스크린리더에 알립니다 */
+  const label = SCREEN_LABEL[name] || name;
+  document.title = `${label} · RE:GARDE — 중고 명품 거래 · 수선`;
+  const scr = $('#s-'+name);
+  if(scr){ scr.setAttribute('role','region'); scr.setAttribute('aria-label', label); }
+  A11y.announce(`${label} 화면`);
+  A11y.enhance(scr || document);
 }
-function back(){ const p = S.history.pop(); go(p || 'home', false); }
+function back(){
+  /* 앱 안에서 이동한 이력이 있을 때만 브라우저 히스토리를 되돌립니다. */
+  if(S.history.length){ history.back(); return; }
+  const p = S.history.pop(); go(p || 'home', false);
+}
+window.addEventListener('popstate', e => {
+  if(Sheet.isOpen()){ Sheet.close(); return; }
+  const prev = S.history.pop();
+  go(e.state?.screen || prev || 'home', false);
+});
+
+/* 처리 중 버튼 잠금 — 중복 제출과 "눌렀는데 반응 없음"을 함께 막습니다 */
+async function withBusy(btn, label, fn){
+  if(btn?.disabled) return;
+  const old = btn ? btn.textContent : '';
+  if(btn){ btn.disabled = true; btn.textContent = label; }
+  try{ return await fn(); }
+  finally{ if(btn){ btn.disabled = false; btn.textContent = old; } }
+}
+
+/* 폼 오류 표시 — 토스트만 띄우지 않고 해당 필드를 강조합니다 */
+const Form = {
+  bad(input, msg){
+    input?.closest('.field')?.classList.add('bad');
+    input?.setAttribute('aria-invalid', 'true');
+    input?.focus();
+    toast(msg); A11y.announce(msg);
+    return false;
+  },
+  clear(scope){
+    scope?.querySelectorAll('.field.bad').forEach(f => f.classList.remove('bad'));
+    scope?.querySelectorAll('[aria-invalid]').forEach(i => i.removeAttribute('aria-invalid'));
+  }
+};
+
+/* 구매·픽업에 쓴 주소만 기기에 보관해 다음 입력을 줄입니다. */
+const Address = {
+  KEY:'regarde.lastAddress',
+  restore(){
+    try{ return localStorage.getItem(Address.KEY) || ''; }catch{ return ''; }
+  },
+  save(value){
+    const address = String(value || '').trim();
+    if(!address) return;
+    S.lastAddr = address;
+    try{ localStorage.setItem(Address.KEY, address); }catch{}
+  }
+};
 
 /* ---------- 실루엣 ---------- */
 const SIL = {
@@ -1068,13 +1353,24 @@ const Auth = {
     return s;
   },
   err(fieldSel, msg){
-    const f = $(fieldSel), e = f.querySelector('.err');
+    const f = $(fieldSel), e = f.querySelector('.err'), input = f.querySelector('input,select,textarea');
     f.classList.add('bad'); e.textContent = msg; e.hidden = false;
+    /* 오류 문구를 입력 필드에 연결해 스크린리더가 함께 읽도록 합니다 */
+    if(input){
+      if(!e.id) e.id = f.id + '-err';
+      input.setAttribute('aria-invalid','true');
+      input.setAttribute('aria-describedby', e.id);
+      input.focus();
+    }
+    A11y.announce(msg);
     return false;
   },
   clearErr(){
     $$('.field .err').forEach(e => e.hidden = true);
     $$('.field').forEach(f => f.classList.remove('bad'));
+    $$('.field input,.field select,.field textarea').forEach(i => {
+      i.removeAttribute('aria-invalid'); i.removeAttribute('aria-describedby');
+    });
   },
   submit(ev){
     ev.preventDefault(); Auth.clearErr();
@@ -1090,21 +1386,49 @@ const Auth = {
       if(phone.length < 10) return Auth.err('#f-phone','휴대폰 번호 11자리를 입력해 주세요.');
       const need = $$('#joinTerms .trm').filter(t => !t.dataset.opt);
       if(!need.every(t => t.classList.contains('on'))){ toast('필수 약관에 동의해 주세요'); return false; }
-      Auth.enter({name, email, phone:$('#i-phone').value});
+      Auth.go('join', {name, email, password:pw, phone:$('#i-phone').value});
     } else {
       if(pw.length < 4) return Auth.err('#f-pw','비밀번호를 확인해 주세요.');
-      Auth.enter({name: email.split('@')[0], email, phone:'010-0000-0000'});
+      Auth.go('login', {email, password:pw});
     }
     return false;
+  },
+  /* 서버가 붙어 있으면 실제 계정으로, 아니면 대본 모드로 진입합니다 */
+  async go(mode, payload){
+    if(!API.on()){
+      Auth.enter(mode === 'join'
+        ? {name:payload.name, email:payload.email, phone:payload.phone}
+        : {name:payload.email.split('@')[0], email:payload.email, phone:'010-0000-0000'});
+      return;
+    }
+    const btn = $('#authBtn'), label = btn.textContent;
+    btn.disabled = true; btn.textContent = '처리 중…';
+    try{
+      const data = mode === 'join' ? await API.signup(payload) : await API.login(payload);
+      S.token = data.token; Session.save();
+      Auth.enter(data.user);
+      await Promise.all([Orders.sync(), Pay.sync()]);
+      Orders.render();
+    }catch(e){ toast(e.message); }
+    finally{ btn.disabled = false; btn.textContent = label; }
   },
   demo(){ Auth.enter({name:'김리가', email:'demo@regarde.kr', phone:'010-2345-6789'}, true); },
   enter(user, demo){
     S.user = user;
     if(demo) Seed.orders();
     go('home', false); S.history = [];
+    try{ history.replaceState({screen:'home'}, ''); }catch{}
     toast(demo ? '데모 계정으로 입장했습니다' : `${user.name}님, 반갑습니다`);
   },
-  logout(){ S.user=null; S.orders=[]; S.cards=[]; go('auth', false); S.history=[]; }
+  logout(){
+    /* 다음 로그인 세션으로 이전 사용자의 상태가 새지 않도록 전부 비웁니다 */
+    S.user=null; S.orders=[]; S.cards=[]; S.consult=null; S.quote=null; S.cart=null; S.payCard=0; S.lastAddr='';
+    S.picked.clear(); S.selecting=false;
+    Session.clear();
+    try{ localStorage.removeItem(Address.KEY); }catch{}
+    Shop.reset();
+    go('auth', false); S.history=[];
+  }
 };
 $('#i-pw')?.addEventListener('input', e => {
   const s = Auth.strength(e.target.value);
@@ -1137,7 +1461,7 @@ const Shop = {
   /* ---------- 홈: 브랜드 스트립 + HOT 상품 ---------- */
   renderHome(){
     $('#homeBrandRow').innerHTML = BRANDS.slice(0,10).map(b =>
-      `<button class="bitem" onclick="Shop.search('${esc(BRAND_KO[b]||b)}')">
+      `<button class="bitem" onclick="Shop.search('${jsq(BRAND_KO[b]||b)}')">
         <span class="bc">${esc(binit(b))}</span><span class="nm">${esc(BRAND_KO[b]||b)}</span></button>`).join('');
     const list = [...PRODUCTS].sort((a,b) => b.clicks - a.clicks).slice(0,4);
     $('#homeGrid').innerHTML = list.map(Shop.tile).join('');
@@ -1146,15 +1470,20 @@ const Shop = {
   brandSheet(fromShop){
     Sheet.open(`<h3>브랜드 전체</h3><p class="sub">${BRANDS.length}개 브랜드</p>
       <div class="stitch"></div>
-      <div class="bgrid">${BRANDS.map(b => `<div class="bitem" style="cursor:pointer" onclick="Sheet.close();Shop.search('${esc(BRAND_KO[b]||b)}')">
+      <div class="bgrid">${BRANDS.map(b => `<div class="bitem" style="cursor:pointer" onclick="Sheet.close();Shop.search('${jsq(BRAND_KO[b]||b)}')">
         <span class="bc">${esc(binit(b))}</span><span class="nm">${esc(BRAND_KO[b]||b)}</span></div>`).join('')}</div>
       <div style="margin-top:18px"><button class="linkbtn" onclick="Sheet.close()">닫기</button></div>`);
   },
 
   /* ---------- 검색 ---------- */
   search(q){
+    /* 검색은 새 탐색의 시작점입니다 — 이전 필터가 남아 "결과 0건"이 되는 함정을 없앱니다 */
     S.fQuery = (q||'').trim();
+    S.fCat='all'; S.fSub.clear(); S.fBrand.clear(); S.fGrade.clear(); S.fStore.clear(); S.fPriceIdx=null;
+    S.fHideProgress=false; S.fReportOnly=false;
+    $('#shopCatChips').innerHTML = '';
     $('#webSearch') && ($('#webSearch').value = S.fQuery);
+    $('#mSearch') && ($('#mSearch').value = S.fQuery);
     go('shop');
   },
 
@@ -1190,14 +1519,15 @@ const Shop = {
   renderShop(){
     if(!$('#shopCatChips').children.length){
       $('#shopCatChips').innerHTML = CATS.map((c,i) =>
-        `<button class="catchip ${S.fCat==='all'&&c==='전체'?'on':''}" data-cat="${esc(c)}" onclick="Shop.pickCat(this,'${esc(c)}')">${esc(c)}</button>`).join('') +
+        `<button class="catchip ${S.fCat==='all'&&c==='전체'?'on':''}" data-cat="${esc(c)}" onclick="Shop.pickCat(this,'${jsq(c)}')">${esc(c)}</button>`).join('') +
         `<button class="catchip more" onclick="Shop.catSheet()">전체 카테고리 ▾</button>`;
     }
     if(!$('#shopSort').children.length){
       $('#shopSort').innerHTML = SORTS.map(s =>
         `<button class="${S.sort===s.v?'on':''}" data-sort="${s.v}" onclick="Shop.setSort('${s.v}')">${s.label}</button>`).join('');
     }
-    $('#shopFilt').innerHTML = `
+    const fbar = $('#shopFilt'), fbarScroll = fbar.scrollLeft;   /* 재렌더 후 가로 스크롤 위치 복원 */
+    fbar.innerHTML = `
       <button class="fbtn ${S.fCat!=='all'||S.fSub.size?'on':''}" onclick="Shop.catSheet()">카테고리${S.fSub.size?` · ${S.fSub.size}`:''} <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
       <button class="fbtn ${S.fBrand.size?'on':''}" onclick="Shop.brandFilterSheet()">브랜드${S.fBrand.size?` · ${S.fBrand.size}`:''} <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
       <button class="fbtn ${S.fGrade.size?'on':''}" onclick="Shop.gradeSheet()">등급${S.fGrade.size?` · ${S.fGrade.size}`:''} <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
@@ -1206,6 +1536,7 @@ const Shop = {
       <span class="fbar-sp"></span>
       <span class="swrap"><span class="lb">거래 진행중 제외</span><span class="swtch ${S.fHideProgress?'on':''}" onclick="Shop.toggle('fHideProgress',this)"></span></span>
       <span class="swrap"><span class="lb">보고구매 가능</span><span class="swtch ${S.fReportOnly?'on':''}" onclick="Shop.toggle('fReportOnly',this)"></span></span>`;
+    fbar.scrollLeft = fbarScroll;
 
     const list = Shop.filtered();
     $('#shopGrid').innerHTML = list.length ? list.map(Shop.tile).join('')
@@ -1243,7 +1574,7 @@ const Shop = {
   /* ---------- 카테고리 메가메뉴 ---------- */
   catSheet(){
     const html = CAT_GROUPS.map(g => `<div class="grp"><h5>${esc(g.g)}</h5><div class="items">
-      ${g.items.map(it => `<button class="${S.fSub.has(it)?'on':''}" onclick="Shop.subToggle('${esc(g.g)}','${esc(it)}',this)">${esc(it)}</button>`).join('')}
+      ${g.items.map(it => `<button class="${S.fSub.has(it)?'on':''}" onclick="Shop.subToggle('${jsq(g.g)}','${jsq(it)}',this)">${esc(it)}</button>`).join('')}
       </div></div>`).join('');
     Sheet.open(`<h3>카테고리</h3><p class="sub">세부 카테고리는 여러 개 고를 수 있습니다.</p>
       <div class="stitch"></div><div class="mega">${html}</div>
@@ -1270,7 +1601,7 @@ const Shop = {
     return BRANDS.filter(b => !qq || b.toLowerCase().includes(qq) || (BRAND_KO[b]||'').includes(q))
       .map(b => {
         const n = PRODUCTS.filter(p => p.brandKey === b).length;
-        return `<div class="cl-row ${S.fBrand.has(b)?'on':''}" onclick="Shop.brandToggle('${esc(b)}',this)">
+        return `<div class="cl-row ${S.fBrand.has(b)?'on':''}" onclick="Shop.brandToggle('${jsq(b)}',this)">
           <i>✓</i><span>${esc(BRAND_KO[b]||b)}</span><span class="n">${n}</span></div>`;
       }).join('') || `<p style="font-size:12px;color:var(--mut);padding:14px 0">일치하는 브랜드가 없습니다</p>`;
   },
@@ -1295,7 +1626,7 @@ const Shop = {
   storeSheet(){
     Sheet.open(`<h3>보유매장</h3><p class="sub">실물을 보유한 매장을 기준으로 찾습니다.</p>
       <div class="stitch"></div>
-      <div class="checklist">${STORES.map(s => `<div class="cl-row ${S.fStore.has(s)?'on':''}" onclick="Shop.storeToggle('${esc(s)}',this)">
+      <div class="checklist">${STORES.map(s => `<div class="cl-row ${S.fStore.has(s)?'on':''}" onclick="Shop.storeToggle('${jsq(s)}',this)">
         <i>✓</i><span>${esc(s)}</span><span class="n">${PRODUCTS.filter(p=>p.store===s).length}</span></div>`).join('')}</div>
       <div style="margin-top:14px"><button class="btn" onclick="Sheet.close();Shop.renderShop()">적용하기</button>
       <button class="linkbtn" onclick="S.fStore.clear();Sheet.close();Shop.renderShop()">초기화</button></div>`);
@@ -1368,12 +1699,28 @@ const Shop = {
         <div class="stitch"></div>
         <div class="eyebrow">RE:GARDE 보증</div>
         <div class="seals" style="margin-top:11px">
-          <div class="seal done"><span class="mk">✓</span><div class="st">Guarantee</div><h4>정품 보증</h4><p>가품 판정 시 전액 환불</p></div>
-          <div class="seal done"><span class="mk">✓</span><div class="st">Aftercare</div><h4>1년 무상 케어</h4><p>기본 수선·클리닝 1회</p></div>
+          <button type="button" class="seal done" aria-pressed="false" onclick="Shop.selectGuarantee(this)">
+            <span class="mk">✓</span><span class="st">Guarantee</span><span class="seal-title">정품 보증</span><span class="seal-copy">가품 판정 시 전액 환불</span>
+          </button>
+          <button type="button" class="seal done" aria-pressed="false" onclick="Shop.selectGuarantee(this)">
+            <span class="mk">✓</span><span class="st">Aftercare</span><span class="seal-title">1년 무상 케어</span><span class="seal-copy">기본 수선·클리닝 1회</span>
+          </button>
         </div>
       </div>`;
     $('#pdpBuy').onclick = () => Checkout.open(p);
     go('pdp');
+  },
+  selectGuarantee(card){
+    const selected = card.getAttribute('aria-pressed') !== 'true';
+    $$('#pdpBody .seal').forEach(el => {
+      el.classList.remove('selected');
+      el.setAttribute('aria-pressed', 'false');
+    });
+    if(selected){
+      card.classList.add('selected');
+      card.setAttribute('aria-pressed', 'true');
+      A11y.announce(`${card.querySelector('.seal-title').textContent} 선택됨`);
+    }
   }
 };
 
@@ -1454,9 +1801,22 @@ const MARKET = [
   {m:/트렌치|코트/, lo:1100000, mo:1480000, hi:1850000, n:29, item:'버버리 트렌치코트'},
   {m:/지갑|베안/, lo:980000, mo:1320000, hi:1700000, n:54, item:'명품 장지갑'}
 ];
+/* 모델명이 목록에 없을 때 쓰는 카테고리 단위 폴백 — 시계에 지갑 시세를 물리지 않도록 */
+const MARKET_FALLBACK = [
+  {m:/시계|워치|롤렉스|오메가|까르띠에|rolex|omega|watch/i, lo:3000000, mo:5200000, hi:7800000, n:24, item:'중고 명품 시계'},
+  {m:/주얼리|목걸이|반지|귀걸이|팔찌|까르띠에|티파니|반클리/i, lo:900000, mo:1600000, hi:2600000, n:27, item:'중고 명품 주얼리'},
+  {m:/가방|백팩|토트|숄더|크로스|클러치|버킷/i, lo:1200000, mo:1900000, hi:2800000, n:31, item:'중고 명품 가방'},
+  {m:/코트|자켓|패딩|의류|니트|원피스|다운/i, lo:600000, mo:1100000, hi:1700000, n:22, item:'중고 명품 의류'},
+  {m:/신발|슈즈|스니커|부츠|로퍼|힐/i, lo:250000, mo:420000, hi:680000, n:19, item:'중고 명품 슈즈'},
+  {m:/지갑|카드|파우치|벨트|스카프|선글라스|소품/i, lo:400000, mo:750000, hi:1200000, n:26, item:'중고 명품 소품'}
+];
 function marketFor(text){
-  const hit = MARKET.find(r => r.m.test(text||''));
-  return hit || {lo:900000, mo:1250000, hi:1650000, n:18, item:(text||'해당 제품').slice(0,24)};
+  const t = text || '';
+  const hit = MARKET.find(r => r.m.test(t));
+  if(hit) return hit;
+  const cat = MARKET_FALLBACK.find(r => r.m.test(t));
+  if(cat) return {...cat, fallback:true};
+  return {lo:900000, mo:1250000, hi:1650000, n:18, item:(t || '해당 제품').slice(0,24), fallback:true};
 }
 
 /* ============================================================
@@ -1499,14 +1859,14 @@ const Consult = {
     Consult.steps();
     go('chat');
     Consult.push('sys', fmtD(today()) + ' · 상담 시작');
-    Consult.ai(f.open, f.chips);
+    Consult.reply(f.open, f.chips);
   },
   exit(){
     if(S.consult && !S.consult.done && S.consult.step > 0){
-      Sheet.open(`<h3>상담을 그만두시겠어요</h3>
-        <p class="sub">지금까지 입력한 내용은 저장되지 않습니다.</p>
-        <div style="margin-top:20px"><button class="btn" onclick="Sheet.close();go('home')">그만두기</button>
-        <button class="linkbtn" onclick="Sheet.close()">계속하기</button></div>`);
+      Sheet.open(`<h3>상담을 끝낼까요?</h3>
+        <p class="sub">지금까지 입력한 답변과 사진은 <b>저장되지 않고 사라집니다</b>. 다시 시작하려면 처음부터 입력해야 합니다.</p>
+        <div style="margin-top:20px"><button class="btn ghost" onclick="Sheet.close();go('home')">네, 그만둘게요</button>
+        <button class="btn" style="margin-top:8px" onclick="Sheet.close()">계속 진행하기</button></div>`);
     } else go('home');
   },
   reopen(){ go('chat'); },
@@ -1530,27 +1890,63 @@ const Consult = {
   },
   md(t){ return esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\n/g,'<br>'); },
   chips(list){
-    $('#chatQuick').innerHTML = (list||[]).map(c =>
-      `<button onclick="Consult.quick('${esc(c).replace(/'/g,"\\'")}')">${esc(c)}</button>`).join('');
+    if(S.consult) S.consult._chips = list || [];
+    $('#chatQuick').innerHTML = (list||[]).map((c,i) =>
+      `<button type="button" onclick="Consult.quick(Consult.chipText(${i}))">${esc(c)}</button>`).join('');
   },
-  quick(t){ $('#chatInput').value = t; Consult.send(); },
+  /* 칩 텍스트는 인덱스로 되짚습니다 — HTML 이스케이프된 문자열이 슬롯에 저장되는 것을 막습니다 */
+  chipText(i){ return (S.consult?._chips || [])[i] ?? ''; },
+  quick(t){ if(S.consult?.busy || !t) return; $('#chatInput').value = t; Consult.send(); },
   grow(el){ el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 96) + 'px'; },
   async ai(text, chips, tool){
     Consult.chips([]);
     const log = $('#chatLog'), typing = document.createElement('div');
     typing.className = 'typing'; typing.innerHTML = '<i></i><i></i><i></i>';
     log.appendChild(typing); log.scrollTop = log.scrollHeight;
-    await wait(rnd(CONFIG.MOCK_DELAY));
+    await wait(API.on() ? 120 : rnd(CONFIG.MOCK_DELAY));
     typing.remove();
     Consult.push('ai', text, tool);
     Consult.chips(chips);
   },
+  async reply(mockText, mockChips, tool){
+    const c = S.consult;
+    if(!API.on()) return Consult.ai(mockText, mockChips, tool);
+    try{
+      const history = c.msgs
+        .filter(m => m.who === 'me' || m.who === 'ai')
+        .map(m => ({role:m.who === 'me' ? 'user' : 'assistant', content:m.text}));
+      const data = await API.consultMessage(c.mode, history, c.slots);
+      if(data.usd) addCost(data.usd);
+      if(data.slots && typeof data.slots === 'object'){
+        for(const [key, value] of Object.entries(data.slots)){
+          if(value !== '' && value !== null && value !== undefined) c.slots[key] = value;
+        }
+      }
+      await Consult.ai(data.reply, Array.isArray(data.quick_replies) ? data.quick_replies : [], tool);
+      return data;
+    }catch(e){
+      Consult.push('sys', e.message || 'AI 응답을 받지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      Consult.chips([]);
+      return null;
+    }
+  },
   pickPhoto(){ $('#photoInput').click(); },
+  /* 서버 비전 감정에 보낼 수 있도록 원본 File 도 함께 들고 있습니다 */
+  async dataUrls(){
+    const c = S.consult;
+    if(!c || !c.photos.length || typeof FileReader === 'undefined') return [];
+    const reads = c.photos.slice(0, 6).map(p => p.file
+      ? new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => res(null); fr.readAsDataURL(p.file); })
+      : Promise.resolve(null));
+    return (await Promise.all(reads)).filter(Boolean);
+  },
   addPhotos(input){
     const c = S.consult; if(!c) return;
-    [...input.files].slice(0, 6).forEach(f => {
+    const room = 6 - c.photos.length;
+    if(input.files.length > room) toast(`사진은 최대 6장까지 첨부됩니다 (${Math.max(room,0)}장 추가)`);
+    [...input.files].slice(0, Math.max(room, 0)).forEach(f => {
       const url = URL.createObjectURL(f);
-      c.photos.push({name:f.name, url});
+      c.photos.push({name:f.name, url, file:f});
     });
     input.value = '';
     Consult.thumbs();
@@ -1587,34 +1983,34 @@ const Consult = {
         c.kb = kbFor(text);
         c.step = 1; Consult.steps();
         $('#chatSub').textContent = '구입 정보를 알려주세요';
-        await Consult.ai(`**${c.slots.item}** 확인했습니다.\n\n구입 시기와 구입처를 알려주세요. 정식 매장 구입 여부는 매입가에 직접 반영됩니다.`,
+        await Consult.reply(`**${c.slots.item}** 확인했습니다.\n\n구입 시기와 구입처를 알려주세요. 정식 매장 구입 여부는 매입가에 직접 반영됩니다.`,
           ['2년 이내 · 백화점','3~5년 전 · 백화점','5년 이상 됨','면세점/해외 구입','선물받아 잘 모름']);
         break;
       case 1:
         c.slots.purchase = text;
         c.step = 2; Consult.steps();
         $('#chatSub').textContent = '상태를 알려주세요';
-        await Consult.ai('사용 상태는 어떤가요? 가장 가까운 것을 골라 주세요.',
+        await Consult.reply('사용 상태는 어떤가요? 가장 가까운 것을 골라 주세요.',
           ['거의 새것','사용감 약간','모서리 마모 있음','오염·변색 있음','수선이 필요함']);
         break;
       case 2:
         c.slots.condition = text;
         c.step = 3; Consult.steps();
         $('#chatSub').textContent = '정품 확인 정보';
-        await Consult.ai(c.kb.ask, c.kb.chips);
+        await Consult.reply(c.kb.ask, c.kb.chips);
         break;
       case 3:
         c.slots.evidence = text;
         c.step = 4; Consult.steps();
         $('#chatSub').textContent = '사진을 올려주세요';
-        await Consult.ai('마지막으로 사진 4장을 올려주세요. AI 1차 감정에 사용됩니다.\n\n**① 정면 전체** · **② 내부 각인 또는 코드** · **③ 금속 부속 클로즈업** · **④ 모서리와 바닥**\n\n왼쪽 아래 카메라 버튼으로 첨부하시면 됩니다.',
+        await Consult.reply('마지막으로 사진 4장을 올려주세요. AI 1차 감정에 사용됩니다.\n\n**① 정면 전체** · **② 내부 각인 또는 코드** · **③ 금속 부속 클로즈업** · **④ 모서리와 바닥**\n\n왼쪽 아래 카메라 버튼으로 첨부하시면 됩니다.',
           ['사진 없이 진행할게요']);
         break;
       case 4:
         c.slots.photos = c.photos.length;
         c.step = 5; Consult.steps();
         $('#chatSub').textContent = '시세를 찾는 중입니다';
-        await Consult.ai('접수됐습니다. 지금 실제 거래된 가격을 찾아보겠습니다.', null, '웹 검색 중 — 최근 3개월 실거래가');
+        await Consult.reply('접수됐습니다. 지금 실제 거래된 가격을 찾아보겠습니다.', null, '웹 검색 중 — 최근 3개월 실거래가');
         await Consult.search();
         break;
     }
@@ -1629,35 +2025,35 @@ const Consult = {
         c.kb = kbFor(text);
         c.step = 1; Consult.steps();
         $('#chatSub').textContent = '증상을 알려주세요';
-        await Consult.ai(`**${c.slots.item}** 확인했습니다.\n\n어떤 증상인가요? 여러 개면 이어서 적어 주셔도 됩니다.`,
+        await Consult.reply(`**${c.slots.item}** 확인했습니다.\n\n어떤 증상인가요? 여러 개면 이어서 적어 주셔도 됩니다.`,
           ['모서리 까짐','스티치 풀림','오염·변색','지퍼 고장','형태 변형','냄새']);
         break;
       case 1:
         c.slots.symptom = text;
         c.step = 2; Consult.steps();
         $('#chatSub').textContent = '사진을 올려주세요';
-        await Consult.ai('손상 부위 사진을 2장 이상 올려주세요.\n\n**① 손상 부위 클로즈업** · **② 제품 전체**\n\n밝은 곳에서 그림자 없이 찍으면 진단이 정확해집니다.',
+        await Consult.reply('손상 부위 사진을 2장 이상 올려주세요.\n\n**① 손상 부위 클로즈업** · **② 제품 전체**\n\n밝은 곳에서 그림자 없이 찍으면 진단이 정확해집니다.',
           ['사진 없이 진행할게요']);
         break;
       case 2:
         c.slots.photos = c.photos.length;
         c.step = 3; Consult.steps();
         $('#chatSub').textContent = '사용 이력';
-        await Consult.ai('사용하신 기간과 이전 수선 이력을 알려주세요. 비공식 업체에서 수선한 적이 있으면 꼭 말씀해 주세요.',
+        await Consult.reply('사용하신 기간과 이전 수선 이력을 알려주세요. 비공식 업체에서 수선한 적이 있으면 꼭 말씀해 주세요.',
           ['3년 미만 · 수선 이력 없음','3~7년 · 수선 이력 없음','수선한 적 있음','잘 모르겠어요']);
         break;
       case 3:
         c.slots.history = text;
         c.step = 4; Consult.steps();
         $('#chatSub').textContent = '원하시는 정도';
-        await Consult.ai('어느 정도까지 원하시나요? 목적에 따라 작업 범위와 비용이 달라집니다.',
+        await Consult.reply('어느 정도까지 원하시나요? 목적에 따라 작업 범위와 비용이 달라집니다.',
           ['최소한만 보수','눈에 안 띄게','최대한 새것처럼','판매 전이라 가치 위주로']);
         break;
       case 4:
         c.slots.goal = text;
         c.step = 5; Consult.steps();
         $('#chatSub').textContent = '수선 단가를 찾는 중입니다';
-        await Consult.ai('접수됐습니다. 동일 증상의 수선 단가를 확인하겠습니다.', null, '웹 검색 중 — 브랜드 정품 수선 단가');
+        await Consult.reply('접수됐습니다. 동일 증상의 수선 단가를 확인하겠습니다.', null, '웹 검색 중 — 브랜드 정품 수선 단가');
         await Consult.search();
         break;
     }
@@ -1674,7 +2070,16 @@ const Consult = {
       await wait(rnd([320, 620]));
       addCost(0.012);
     }
-    const report = CONFIG.API_BASE ? await API.report(c) : Report.build(c);
+    let report;
+    try{
+      report = CONFIG.API_BASE ? await API.report(c) : Report.build(c);
+    }catch(e){
+      /* 서버 모드의 실패를 실거래 기반 견적으로 보이게 하지 않습니다. */
+      toast(e.message || '견적을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요');
+      await Consult.ai('현재 견적을 만들지 못했습니다. 입력 내용은 그대로 두었으니 잠시 후 다시 시도해 주세요.',
+        ['다시 시도하기']);
+      return;
+    }
     S.quote = report;
     c.done = true;
     await Consult.ai(report.summary, null);
@@ -1715,6 +2120,8 @@ const Report = {
       if(/있음|일치/.test(s.evidence||'')) adj += .02;
       if(/없음/.test(s.evidence||'')) adj -= .05;
       if(/모르|어려/.test(s.evidence||'')) adj -= .03;
+      /* 조정률은 시세 대비 -30% ~ +12% 안에서만 움직입니다 (극단 입력 방어) */
+      adj = Math.max(-0.30, Math.min(0.12, adj));
 
       const lo = Math.round(mk.lo*(1+adj)/10000)*10000;
       const mo = Math.round(mk.mo*(1+adj)/10000)*10000;
@@ -1758,17 +2165,29 @@ const Report = {
       [{name:'전체 클리닝 + 마감 보호 코팅', lo:80000, hi:150000, days:'5~7일'}]);
     const tLo = picks.reduce((a,b)=>a+b.lo,0), tHi = picks.reduce((a,b)=>a+b.hi,0);
     const mk = marketFor(s.item);
-    const uplift = Math.round(mk.mo*.11/10000)*10000;
+    /* 모델을 특정하지 못했으면 시세 기반 추정이 무의미하므로 수선비 대비로 잡습니다 */
+    const uplift = mk.fallback
+      ? Math.round((tLo + tHi) / 2 * 0.6 / 10000) * 10000
+      : Math.round(mk.mo * .11 / 10000) * 10000;
+    /* 소요 기간은 마지막 항목이 아니라 가장 오래 걸리는 항목 기준으로 안내합니다 */
+    const upper = d => Math.max(...(String(d).match(/\d+/g) || ['0']).map(Number));
+    const longest = picks.reduce((a,b) => upper(b.days) > upper(a.days) ? b : a);
     return {
       mode:'repair', title:s.item, item:s.item, slots:s, created:fmtD(today()),
       summary:`증상을 확인했습니다.\n\n필요한 작업은 ${picks.length}가지이고 비용은 **${tLo.toLocaleString('ko-KR')}원 ~ ${tHi.toLocaleString('ko-KR')}원** 사이로 예상됩니다.\n\n작업 후 재판매 시세는 평균 ${wonShort(uplift)}원가량 올라갑니다. 자세한 내역을 리포트로 정리했습니다.`,
       price:{lo:tLo, mo:Math.round((tLo+tHi)/2/1000)*1000, hi:tHi, uplift},
-      items:picks, days:picks[picks.length-1].days,
+      items:picks, days:longest.days,
       auth:{score:0, level:'-', checks:[], warn:'수선 접수품도 정품 확인 절차를 함께 진행합니다.', brand:''}
     };
   },
 
   bar(lo, mo, hi){
+    /* 서버 저장 전 임시 접수처럼 0원 구간이 와도 NaN CSS 값을 만들지 않습니다. */
+    if(!Number.isFinite(lo) || !Number.isFinite(mo) || !Number.isFinite(hi) || hi <= 0){
+      return `<div class="track"><div class="fill" style="left:0%;width:0%"></div>
+        <div class="peak" style="left:50%"></div></div>
+        <div class="scale"><span>${wonShort(0)}</span><span>${wonShort(0)}</span></div>`;
+    }
     const min = lo*0.85, max = hi*1.15, span = max - min;
     const l = ((lo-min)/span*100).toFixed(1), w = ((hi-lo)/span*100).toFixed(1), p = ((mo-min)/span*100).toFixed(1);
     return `<div class="track"><div class="fill" style="left:${l}%;width:${w}%"></div>
@@ -1790,7 +2209,7 @@ const Report = {
         <div class="ends"><span class="lo">${won(r.price.lo)}</span><span class="to">~</span><span class="hi">${won(r.price.hi)}</span></div>
         ${Report.bar(r.price.lo, r.price.mo, r.price.hi)}
         <p class="peaklab">${sell
-          ? `같은 모델 실거래 <b>${r.price.n}건</b> 중 가장 많이 형성된 가격은 <b>${won(r.price.mo)}</b>였습니다.`
+          ? `같은 모델 실거래 <b>${r.price.n}건</b> 중 가장 많이 형성된 가격은 <b>${won(r.price.mkMo ?? r.price.mo)}</b>였습니다.`
           : `평균적으로 <b>${won(r.price.mo)}</b> 선에서 마무리됩니다.`}</p>
       </div>`;
 
@@ -1824,7 +2243,7 @@ const Report = {
       <div style="margin-top:12px">
         ${r.auth.checks.map(c => `<div class="kv"><span class="k" style="flex:1">${esc(c.k)}<br>
           <span style="font-size:10px;color:var(--mut)">${esc(c.v)}</span></span>
-          <span class="v" style="white-space:nowrap">${stMark[c.st]} ${stTxt[c.st]}</span></div>`).join('')}
+          <span class="v" style="white-space:nowrap">${stMark[c.st] || '·'} ${stTxt[c.st] || '확인 중'}</span></div>`).join('')}
       </div>
       <p class="note" style="margin-top:12px">⚠ ${esc(r.auth.warn)}</p>`;
     } else {
@@ -1893,9 +2312,17 @@ const Pickup = {
       <h4>${esc(r.title)}</h4>
       <div class="meta">${r.mode === 'sell' ? '예상 매입' : '예상 비용'} ${won(r.price.lo)} ~ ${won(r.price.hi)}</div>`;
     if(S.user){ $('#pkName').value = S.user.name || ''; $('#pkPhone').value = S.user.phone || ''; }
+    /* 이전 접수의 입력이 남지 않도록 폼 상태를 초기화합니다 */
+    Pickup._m = 'direct';
+    $$('#pickupMode button').forEach((b,i) => b.classList.toggle('on', i===0));
+    $('#pickupModeHint').textContent = '지정하신 시간에 전담 매니저가 방문해 안심 박스에 담아 갑니다. 서울·경기 전역 무료.';
+    $('#pkAddr').value = S.lastAddr || ''; $('#pkAddr2').value = ''; $('#pkMemo').value = '';
+    $('#pkBox').classList.remove('on'); $('#pkAgree').classList.add('on');
+    /* 일요일은 수거를 하지 않으므로 후보 날짜에서 뺍니다 */
     const ds = [];
-    for(let i=1; i<=5; i++){
+    for(let i=1; ds.length < 5 && i <= 14; i++){
       const d = new Date(); d.setDate(d.getDate()+i);
+      if(d.getDay() === 0) continue;
       ds.push(`${d.getMonth()+1}/${d.getDate()} (${'일월화수목금토'[d.getDay()]})`);
     }
     $('#pkDates').innerHTML = ds.map((d,i) =>
@@ -1912,18 +2339,32 @@ const Pickup = {
       : '안심 박스를 먼저 보내 드립니다. 담아서 문 앞에 두시면 기사가 수거합니다. 전국 무료.';
     Pickup._m = m;
   },
-  submit(){
-    if(!$('#pkAddr').value.trim()){ toast('주소를 입력해 주세요'); $('#pkAddr').focus(); return; }
-    if(!$('#pkPhone').value.trim()){ toast('연락처를 입력해 주세요'); return; }
-    if(!$('#pkAgree').classList.contains('on')){ toast('필수 항목에 동의해 주세요'); return; }
+  async submit(btn){
+    Form.clear($('#s-pickup'));
+    if(!$('#pkAddr').value.trim()) return Form.bad($('#pkAddr'), '주소를 입력해 주세요');
+    if(!$('#pkPhone').value.trim()) return Form.bad($('#pkPhone'), '연락처를 입력해 주세요');
+    if(!$('#pkAgree').classList.contains('on')){ toast('필수 항목에 동의해 주세요'); $('#pkAgree').focus(); return; }
     const r = S.quote;
+    if(!r){ toast('먼저 상담을 진행해 주세요'); return; }
+    return withBusy(btn, '접수 중…', () => Pickup._submit(r));
+  },
+  async _submit(r){
     const date = $('#pkDates .chip.on')?.textContent || '';
     const time = $('#pkTimes .chip.on')?.textContent || '';
     const o = {
       id: uid('RG-'), type:r.mode, title:r.title, created:fmtD(today()), stage:1,
       price:{...r.price}, report:r, final:null,
-      pickup:{mode:Pickup._m || 'direct', date, time, addr:$('#pkAddr').value, box:$('#pkBox').classList.contains('on')}
+      pickup:{mode:Pickup._m || 'direct', date, time, addr:$('#pkAddr').value, memo:$('#pkMemo').value,
+        box:$('#pkBox').classList.contains('on')}
     };
+    if(API.on() && S.token){
+      /* 서버가 붙어 있으면 실제 접수를 생성하고 서버가 준 접수번호를 씁니다 */
+      try{
+        const d = await API.createOrder(o);
+        Object.assign(o, Orders.fromServer(d.order), {report:r, price:{...r.price}});
+      }catch(e){ toast(e.message); return; }
+    }
+    Address.save(o.pickup.addr);
     S.orders.unshift(o);
     Sheet.open(`<h3>픽업 신청이 접수됐습니다</h3>
       <p class="sub">접수번호 <b>${o.id}</b> · ${esc(date)} ${esc(time)}<br>
@@ -1940,6 +2381,17 @@ const Pickup = {
    내 접수 / 진행 상황
    ============================================================ */
 const Orders = {
+  /* 서버 접수 레코드를 화면 모델로 맞춥니다 (created: ISO → 2026.08.13) */
+  fromServer(o){
+    return {...o, created: fmtD(new Date(o.created)), price: o.price || {lo:0, mo:0, hi:0}};
+  },
+  async sync(){
+    if(!API.on() || !S.token) return;
+    try{
+      const d = await API.get('/api/orders');
+      S.orders = (d.orders || []).map(Orders.fromServer);
+    }catch(e){ toast(e.message); }
+  },
   filter(btn, f){
     S.ordFilter = f;
     $$('#ordFilt button').forEach(b => b.classList.toggle('on', b===btn));
@@ -1962,7 +2414,7 @@ const Orders = {
       const isFinal = o.type==='sell' && o.stage===4 && o.final;
       return `<button class="card" onclick="Track.open('${o.id}')">
         <div class="ch"><span class="l">${LABEL[o.type]} · ${o.id}</span>
-          <span class="badge ${isFinal?'fill':''}">${isFinal ? '금액 확인 필요' : esc(st.t)}</span></div>
+          <span class="badge ${isFinal?'fill':''}">${o.returned ? '반송 처리' : isFinal ? '금액 확인 필요' : esc(st.t)}</span></div>
         <h4>${esc(o.title)}</h4>
         <div class="meta">${o.created} 접수 · ${o.stage+1}/${STAGES[o.type].length} 단계</div>
         <div class="amt">${o.final ? won(o.final) : o.type==='buy' ? won(o.price.lo)
@@ -2018,27 +2470,57 @@ const Track = {
     const act = $('#trackActions');
     if(o.type==='sell' && o.stage===4 && o.final){
       act.hidden = false;
-      act.innerHTML = `<button class="btn ghost" style="flex:1" onclick="Track.decline()">반송 요청</button>
-        <button class="btn" style="flex:1" onclick="Track.accept()">금액 수락</button>`;
+      act.innerHTML = `<button class="btn ghost" style="flex:1" onclick="Track.decline(this)">반송 요청</button>
+        <button class="btn" style="flex:1" onclick="Track.accept(this)">금액 수락</button>`;
     } else if(o.type==='repair' && o.stage===3 && o.final){
       act.hidden = false;
-      act.innerHTML = `<button class="btn" onclick="Track.payRepair()">견적 결제하고 작업 시작</button>`;
+      act.innerHTML = `<button class="btn" onclick="Track.payRepair(this)">견적 결제하고 작업 시작</button>`;
     } else { act.hidden = true; act.innerHTML=''; }
     go('track');
   },
-  accept(){
-    const o = Track.cur; o.stage = 5; o.status = '정산 완료';
+  async accept(btn){
+    const o = Track.cur;
+    if(API.on() && S.token){
+      return withBusy(btn, '처리 중…', async () => {
+        try{
+          Object.assign(o, Orders.fromServer((await API.acceptOrder(o.id)).order));
+          toast('수락 처리됐습니다. 영업일 1일 내 입금됩니다.');
+          Track.open(o.id);
+        }catch(e){ toast(e.message); }
+      });
+    }
+    o.stage = STAGES[o.type].length - 1;
     toast('수락 처리됐습니다. 영업일 1일 내 입금됩니다.');
     Track.open(o.id);
   },
-  decline(){
-    const o = Track.cur; o.stage = 5; o.final = null; o.title += ' (반송)';
+  async decline(btn){
+    /* 제목을 덧붙여 훼손하지 않고 상태 플래그로 표시합니다 (반복 호출해도 안전) */
+    const o = Track.cur;
+    if(API.on() && S.token){
+      return withBusy(btn, '처리 중…', async () => {
+        try{
+          Object.assign(o, Orders.fromServer((await API.declineOrder(o.id)).order));
+          toast('반송 요청이 접수됐습니다. 배송비는 없습니다.');
+          Track.open(o.id);
+        }catch(e){ toast(e.message); }
+      });
+    }
+    o.stage = STAGES[o.type].length - 1; o.final = null; o.returned = true;
     toast('반송 요청이 접수됐습니다. 배송비는 없습니다.');
     Track.open(o.id);
   },
-  payRepair(){
+  async payRepair(btn){
     const o = Track.cur;
     if(!S.cards.length){ toast('먼저 결제수단을 등록해 주세요'); go('pay'); return; }
+    if(API.on() && S.token){
+      return withBusy(btn, '결제 중…', async () => {
+        try{
+          Object.assign(o, Orders.fromServer((await API.payRepair(o.id)).order));
+          toast('결제가 완료되어 작업을 시작합니다');
+          Track.open(o.id);
+        }catch(e){ toast(e.message); }
+      });
+    }
     o.stage = 4; toast('결제가 완료되어 작업을 시작합니다');
     Track.open(o.id);
   }
@@ -2057,7 +2539,7 @@ const My = {
         <div style="font-size:11px;color:var(--mut);margin-top:3px">${esc(u.email||'')}</div></div>
       </div>
       <div class="stitch"></div>
-      <div class="kv"><span class="k">진행 중 접수</span><span class="v">${S.orders.filter(o=>o.stage < STAGES[o.type].length-1).length}건</span></div>
+      <div class="kv"><span class="k">진행 중 접수</span><span class="v">${S.orders.filter(o => o.stage < STAGES[o.type].length-1 && !o.returned).length}건</span></div>
       <div class="kv"><span class="k">등록 결제수단</span><span class="v">${S.cards.length}개</span></div>
       <div class="kv"><span class="k">누적 거래</span><span class="v">${S.orders.length}건</span></div>
       <div class="stitch"></div>
@@ -2077,13 +2559,20 @@ const My = {
 
 const ISSUERS = [['4','비자'],['5','마스터'],['3','아멕스'],['6','국내전용'],['9','국내전용']];
 const Pay = {
+  async sync(){
+    if(!API.on() || !S.token) return;
+    try{
+      const d = await API.get('/api/billing-keys');
+      S.cards = (d.cards || []).map(c => ({id:c.id, brand:c.brand, last4:c.last4, expiry:c.expiry, name:S.user?.name || '본인'}));
+    }catch(e){ toast(e.message); }
+  },
   render(){
     $('#payBody').innerHTML = `
       ${S.cards.map((c,i) => `<div class="paycard ${i?'alt':''}">
         ${i===0?'<span class="main">기본</span>':''}
         <div class="co">${esc(c.brand)}</div>
         <div class="no">•••• •••• •••• ${esc(c.last4)}</div>
-        <div class="bt"><span>${esc(c.name)}</span><span>${esc(c.exp)}</span></div></div>`).join('')}
+        <div class="bt"><span>${esc(c.name || S.user?.name || '본인')}</span><span>${esc(c.expiry)}</span></div></div>`).join('')}
       ${!S.cards.length ? `<div class="empty" style="padding:40px 20px">
         <div class="ill"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="1.5"/><path d="M3 10h18"/></svg></div>
         <h3>등록된 결제수단이 없습니다</h3><p>카드를 등록하면 구매와 수선비 결제를<br>한 번에 진행할 수 있습니다.</p></div>` : ''}
@@ -2101,62 +2590,106 @@ const Pay = {
         <input id="cNo" inputmode="numeric" placeholder="0000 0000 0000 0000" maxlength="19" oninput="Pay.fmt(this)"></div>
       <div style="display:flex;gap:14px">
         <div class="field" style="flex:1"><label for="cExp">유효기간</label><input id="cExp" placeholder="MM/YY" maxlength="5" oninput="Pay.exp(this)"></div>
-        <div class="field" style="flex:1;border-top:1px solid var(--hair)"><label for="cCvc">CVC</label><input id="cCvc" inputmode="numeric" placeholder="000" maxlength="3"></div>
+        <div class="field" style="flex:1;border-top:1px solid var(--hair)"><label for="cBirth">생년월일 6자리</label>
+          <input id="cBirth" inputmode="numeric" placeholder="900101" maxlength="6"></div>
       </div>
-      <div class="field"><label for="cBirth">생년월일 6자리</label><input id="cBirth" inputmode="numeric" placeholder="900101" maxlength="6"></div>
       <div class="field"><label for="cPw">카드 비밀번호 앞 2자리</label><input id="cPw" type="password" inputmode="numeric" placeholder="••" maxlength="2"></div>
-      <div class="check on" onclick="Auth.tog(this)"><i>✓</i><span>결제대행사 약관 및 개인정보 제공에 동의합니다 <span class="u mut">필수</span></span></div>
-      <div style="margin-top:18px"><button class="btn" onclick="Pay.save()">카드 등록</button>
+      <div class="check on" id="cAgree" onclick="Auth.tog(this)"><i>✓</i><span>결제대행사 약관 및 개인정보 제공에 동의합니다 <span class="u mut">필수</span></span></div>
+      <div style="margin-top:18px"><button class="btn" onclick="Pay.save(this)">카드 등록</button>
       <button class="linkbtn" onclick="Sheet.close()">취소</button></div>`);
   },
   fmt(el){ el.value = el.value.replace(/\D/g,'').slice(0,16).replace(/(.{4})/g,'$1 ').trim(); },
   exp(el){ let v = el.value.replace(/\D/g,'').slice(0,4); if(v.length>2) v = v.slice(0,2)+'/'+v.slice(2); el.value = v; },
-  save(){
+  luhn(no){
+    let sum=0, flip=false;
+    for(let i=no.length-1;i>=0;i--,flip=!flip){
+      let n=Number(no[i]); if(flip && (n*=2)>9) n-=9; sum+=n;
+    }
+    return sum%10===0;
+  },
+  async save(btn){
     const no = $('#cNo').value.replace(/\s/g,''), exp = $('#cExp').value;
+    const birth = $('#cBirth').value.replace(/\D/g,''), pwd2 = $('#cPw').value.replace(/\D/g,'');
     if(no.length < 15){ toast('카드번호를 확인해 주세요'); return; }
+    if(!Pay.luhn(no)){ toast('카드번호를 확인해 주세요'); return; }
     if(!/^\d{2}\/\d{2}$/.test(exp)){ toast('유효기간을 MM/YY로 입력해 주세요'); return; }
-    if($('#cPw').value.length < 2){ toast('비밀번호 앞 2자리를 입력해 주세요'); return; }
-    const brand = (ISSUERS.find(i => no.startsWith(i[0])) || [,'카드'])[1];
-    S.cards.push({brand, last4:no.slice(-4), exp, name:S.user?.name || '본인', key:'billing_'+Math.random().toString(36).slice(2,10)});
+    const mm = Number(exp.slice(0,2));
+    if(mm < 1 || mm > 12){ toast('유효기간의 월을 확인해 주세요'); return; }
+    if(birth.length !== 6){ toast('생년월일 6자리를 입력해 주세요'); return; }
+    if(pwd2.length !== 2){ toast('비밀번호 앞 2자리를 입력해 주세요'); return; }
+    if(!$('#cAgree').classList.contains('on')){ toast('결제 약관에 동의해 주세요'); return; }
+
+    if(API.on()){
+      /* 카드번호는 서버를 거쳐 PG 로만 가고, 화면에는 빌링키 결과만 남깁니다 */
+      const ok = await withBusy(btn, '등록 중…', async () => {
+        try{
+          const d = await API.addCard({cardNumber:no, expiry:exp, birth, pwd2});
+          S.cards.push({id:d.card.id, brand:d.card.brand, last4:d.card.last4, expiry:d.card.expiry, name:S.user?.name || '본인'});
+          return true;
+        }catch(e){ toast(e.message); return false; }
+      });
+      if(!ok) return;
+    } else {
+      const brand = (ISSUERS.find(i => no.startsWith(i[0])) || [,'카드'])[1];
+      S.cards.push({brand, last4:no.slice(-4), expiry:exp, name:S.user?.name || '본인', key:'billing_'+Math.random().toString(36).slice(2,10)});
+    }
     Sheet.close(); Pay.render(); toast('카드가 등록됐습니다');
+    /* 결제 화면에서 넘어왔다면 원래 하던 결제로 돌려보냅니다 */
+    if(S.returnTo === 'checkout' && S.cart){ S.returnTo = null; Checkout.open(S.cart); }
   }
 };
 
 const Checkout = {
   open(p){
-    S.cart = p;
+    S.cart = p; S.payCard = 0;
     $('#checkoutBody').innerHTML = `
       <div class="card" style="margin-bottom:16px"><div class="ch"><span class="l">${esc(p.brand)}</span>
         <span class="badge">2차 감정 완료</span></div>
         <h4>${esc(p.name)}</h4><div class="meta">컨디션 ${p.grade} · 관리 ${p.care}</div>
         <div class="amt">${won(p.price)}</div></div>
       <div class="eyebrow">결제수단</div>
-      ${S.cards.length ? S.cards.map((c,i) => `<div class="check ${i===0?'on':''}" onclick="Checkout.pick(this)"><i>✓</i>
+      ${S.cards.length ? S.cards.map((c,i) => `<div class="check ${i===0?'on':''}" data-i="${i}" onclick="Checkout.pick(this)"><i>✓</i>
         <span>${esc(c.brand)} •••• ${esc(c.last4)}</span></div>`).join('')
         : `<p class="note" style="margin-top:11px">등록된 카드가 없습니다. 먼저 결제수단을 등록해 주세요.</p>
-           <div style="margin-top:12px"><button class="btn ghost sm" onclick="go('pay')">카드 등록하러 가기</button></div>`}
+           <div style="margin-top:12px"><button class="btn ghost sm" onclick="S.returnTo='checkout';go('pay')">카드 등록하러 가기</button></div>`}
       <div class="stitch"></div>
       <div class="eyebrow">배송지</div>
-      <div class="field" style="border-top:none"><label for="coAddr">주소</label><input id="coAddr" placeholder="도로명 주소"></div>
+      <div class="field" style="border-top:none"><label for="coAddr">주소</label>
+        <input id="coAddr" placeholder="도로명 주소" value="${esc(S.lastAddr || '')}"></div>
       <div class="stitch"></div>
       <div class="kv"><span class="k">상품 금액</span><span class="v">${won(p.price)}</span></div>
       <div class="kv"><span class="k">배송비</span><span class="v">무료</span></div>
       <div class="kv" style="border-top:1px solid var(--ink)"><span class="k" style="color:var(--ink);font-weight:600">총 결제</span>
         <span class="v" style="font-weight:600">${won(p.price)}</span></div>
       <p class="note" style="margin-top:14px">전 상품 <b>정품 보증</b>. 가품으로 판정되면 전액 환불합니다. 수령 후 3일 내 단순 변심 반품도 가능합니다.</p>`;
-    $('#payNow').onclick = () => Checkout.pay();
+    $('#payNow').onclick = (e) => Checkout.pay(e.currentTarget);
     go('checkout');
   },
-  pick(el){ $$('#checkoutBody .check').forEach(c => c.classList.toggle('on', c===el)); },
-  pay(){
-    if(!S.cards.length){ toast('결제수단을 먼저 등록해 주세요'); go('pay'); return; }
-    if(!$('#coAddr').value.trim()){ toast('배송지를 입력해 주세요'); return; }
+  pick(el){
+    $$('#checkoutBody .check').forEach(c => c.classList.toggle('on', c===el));
+    S.payCard = Number(el.dataset.i) || 0;   /* 고른 카드를 실제 결제에 반영합니다 */
+  },
+  async pay(btn){
+    if(!S.cards.length){ toast('결제수단을 먼저 등록해 주세요'); S.returnTo='checkout'; go('pay'); return; }
+    if(!$('#coAddr').value.trim()) return Form.bad($('#coAddr'), '배송지를 입력해 주세요');
+    return withBusy(btn, '결제 중…', () => Checkout._pay());
+  },
+  async _pay(){
     const p = S.cart;
+    const card = S.cards[S.payCard] || S.cards[0];
     const o = {id:uid('RG-'), type:'buy', title:`${p.brand} ${p.name}`, created:fmtD(today()),
-      stage:0, price:{lo:p.price, hi:p.price, mo:p.price}, final:p.price};
+      stage:0, price:{lo:p.price, hi:p.price, mo:p.price}, final:p.price,
+      addr:$('#coAddr').value.trim(), payment:{brand:card.brand, last4:card.last4}};
+    if(API.on() && S.token){
+      try{
+        const d = await API.createOrder({...o, report:{price:o.price}});
+        Object.assign(o, Orders.fromServer(d.order), {price:{lo:p.price, hi:p.price, mo:p.price}, final:p.price});
+      }catch(e){ toast(e.message); return; }
+    }
+    Address.save(o.addr);
     S.orders.unshift(o);
     Sheet.open(`<h3>결제가 완료됐습니다</h3>
-      <p class="sub">주문번호 <b>${o.id}</b><br>출고 검수를 거쳐 1~2일 내 발송됩니다.</p>
+      <p class="sub">주문번호 <b>${o.id}</b> · ${esc(card.brand)} •••• ${esc(card.last4)}<br>출고 검수를 거쳐 1~2일 내 발송됩니다.</p>
       <div style="margin-top:20px"><button class="btn" onclick="Sheet.close();Track.open('${o.id}')">주문 상세 보기</button>
       <button class="linkbtn" onclick="Sheet.close();go('home')">홈으로</button></div>`);
   }
@@ -2166,8 +2699,16 @@ const Checkout = {
    감정사 콘솔 — 2차 감정 / 최종 금액 확정
    ============================================================ */
 const Admin = {
+  /* 서버가 붙어 있으면 전체 대기열을, 아니면 로컬 접수를 보여줍니다 */
+  async load(){
+    if(API.on() && S.token){
+      try{ S.queue = ((await API.queue()).orders || []).map(Orders.fromServer); }
+      catch(e){ S.queue = null; toast(e.message); }
+    } else S.queue = null;
+    Admin.render();
+  },
   render(){
-    const queue = S.orders.filter(o => o.type !== 'buy');
+    const queue = S.queue || S.orders.filter(o => o.type !== 'buy');
     $('#adminBody').innerHTML = `
       <div class="stat">
         <div><div class="n">${queue.filter(o=>o.stage<=2).length}</div><div class="l">감정 대기</div></div>
@@ -2190,14 +2731,22 @@ const Admin = {
             <button class="btn sm" style="flex:1" onclick="Admin.finalize('${o.id}')">최종 금액 확정</button></div>`}
       </div>`).join('') : `<div class="empty"><h3>대기열이 비었습니다</h3><p>고객이 픽업을 신청하면<br>여기에 표시됩니다.</p></div>`}`;
   },
-  advance(id){
-    const o = S.orders.find(x => x.id === id);
-    o.stage = Math.min(o.stage+1, STAGES[o.type].length-1);
+  find(id){ return (S.queue || S.orders).find(x => x.id === id) || S.orders.find(x => x.id === id); },
+  async advance(id){
+    const o = Admin.find(id); if(!o) return;
+    if(API.on() && S.token){
+      try{ Object.assign(o, Orders.fromServer((await API.post(`/api/orders/${encodeURIComponent(id)}/stage`)).order)); }
+      catch(e){ toast(e.message); return; }
+    } else {
+      o.stage = Math.min(o.stage+1, STAGES[o.type].length-1);
+    }
     Admin.render(); toast(`${o.id} — ${STAGES[o.type][o.stage].t}`);
   },
   finalize(id){
-    const o = S.orders.find(x => x.id === id);
-    const mid = Math.round((o.price.lo + o.price.hi)/2/10000)*10000;
+    const o = Admin.find(id); if(!o) return;
+    /* 매입은 AI 가 낸 즉시 매입 기준가를, 없으면 구간 중앙값을 기본으로 제안합니다 */
+    const base = o.type === 'sell' && Number.isFinite(o.price?.mo) ? o.price.mo : ((o.price.lo + o.price.hi) / 2);
+    const mid = Math.round(base/10000)*10000;
     Sheet.open(`<h3>최종 금액 확정</h3>
       <p class="sub">${o.id} · ${esc(o.title)}<br>AI 예상 구간 ${won(o.price.lo)} ~ ${won(o.price.hi)}</p>
       <div class="stitch"></div>
@@ -2208,12 +2757,19 @@ const Admin = {
       <div style="margin-top:18px"><button class="btn" onclick="Admin.saveFinal('${o.id}')">고객에게 제안 보내기</button>
       <button class="linkbtn" onclick="Sheet.close()">취소</button></div>`);
   },
-  saveFinal(id){
-    const o = S.orders.find(x => x.id === id);
+  async saveFinal(id){
+    const o = Admin.find(id); if(!o) return;
     const v = parseInt(($('#fnPrice').value || '0').replace(/\D/g,''), 10);
     if(!v){ toast('금액을 입력해 주세요'); return; }
-    o.final = v; o.finalNote = $('#fnNote').value;
-    o.stage = o.type === 'sell' ? 4 : 3;
+    const note = $('#fnNote').value;
+    if(API.on() && S.token){
+      try{ Object.assign(o, Orders.fromServer((await API.finalize(id, v, note)).order)); }
+      catch(e){ toast(e.message); return; }
+    } else {
+      o.final = v; o.finalNote = note;
+      /* 이미 더 진행된 접수를 뒤로 되돌리지 않습니다 */
+      o.stage = Math.max(o.stage, o.type === 'sell' ? 4 : 3);
+    }
     Sheet.close(); Admin.render(); toast('고객에게 최종 금액을 보냈습니다');
   }
 };
@@ -2222,25 +2778,99 @@ const Admin = {
    서버 연동 (API_BASE 설정 시)
    ============================================================ */
 const API = {
-  async post(path, body){
+  on(){ return !!CONFIG.API_BASE; },
+  /* 저장된 세션 토큰을 붙여 보냅니다. 서버가 내려준 error 문구를 그대로 살려 던집니다. */
+  async req(method, path, body){
     const res = await fetch(CONFIG.API_BASE + path, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(body)
+      method,
+      headers:{'Content-Type':'application/json', ...(S.token ? {Authorization:'Bearer '+S.token} : {})},
+      body: body === undefined ? undefined : JSON.stringify(body)
     });
-    if(!res.ok) throw new Error('API ' + res.status);
-    return res.json();
+    let data = null;
+    try{ data = await res.json(); }catch{}
+    if(!res.ok){
+      if(res.status === 401){
+        /* 세션 만료 — 조용히 실패하지 않고 로그인 화면으로 돌려보냅니다 */
+        Session.clear(); S.user = null;
+        if(S.screen !== 'auth'){ go('auth', false); S.history = []; }
+      }
+      throw new Error(data?.error || `요청을 처리하지 못했습니다 (${res.status})`);
+    }
+    return data;
   },
+  get(p){ return API.req('GET', p); },
+  post(p, b){ return API.req('POST', p, b); },
+  del(p){ return API.req('DELETE', p); },
+
+  /* --- 인증 --- */
+  signup(payload){ return API.post('/api/auth/signup', payload); },
+  login(payload){ return API.post('/api/auth/login', payload); },
+  consultMessage(mode, history, slots){
+    return API.post('/api/consult/message', {mode, history, slots});
+  },
+
+  /* --- 리포트 --- */
   async report(c){
     try{
+      const images = await Consult.dataUrls();
       const data = await API.post('/api/consult/report', {
         mode:c.mode, slots:c.slots, photos:c.photos.length, locale:'ko-KR'
       });
       if(data.usd) addCost(data.usd);
-      return data.report;
-    }catch(e){
-      toast('서버에 연결하지 못해 예시 리포트를 표시합니다');
-      return Report.build(c);
-    }
+      const report = data.report;
+      /* 사진이 있으면 비전 1차 감정 결과를 리포트에 합칩니다 */
+      if(images.length && c.mode === 'sell'){
+        try{
+          const v = await API.post('/api/authenticate', {slots:c.slots, images});
+          if(v?.usd) addCost(v.usd);
+          const r = v?.result;
+          /* VISION_SCHEMA 필드명 그대로 매핑합니다 (auth_score / auth_level / checks / risk_signals) */
+          if(r) report.auth = {
+            score: r.auth_score ?? report.auth?.score ?? 0,
+            level: r.auth_level ?? report.auth?.level ?? '-',
+            warn: (Array.isArray(r.risk_signals) ? r.risk_signals.join(' · ') : r.risk_signals) || report.auth?.warn || '',
+            brand: report.auth?.brand || '',
+            checks: (r.checks || report.auth?.checks || []).map(x => x.point ? {k:x.point, v:x.detail, st:x.status} : x)
+          };
+        }catch(e){ toast('사진 감정은 건너뛰었습니다 — ' + e.message); }
+      }
+      return report;
+    }catch(e){ throw e; }
+  },
+
+  /* --- 접수 --- */
+  createOrder(o){
+    return API.post('/api/orders', {type:o.type, title:o.title, report:o.report || null, pickup:o.pickup || null});
+  },
+  acceptOrder(id){ return API.post(`/api/orders/${encodeURIComponent(id)}/accept`, {}); },
+  declineOrder(id){ return API.post(`/api/orders/${encodeURIComponent(id)}/decline`, {}); },
+  payRepair(id){ return API.post(`/api/orders/${encodeURIComponent(id)}/repair-payment`, {}); },
+  /* --- 결제수단 --- */
+  addCard(body){ return API.post('/api/billing-keys', body); },
+  /* --- 감정사 --- */
+  queue(){ return API.get('/api/admin/queue'); },
+  finalize(id, final, note){ return API.post(`/api/admin/orders/${encodeURIComponent(id)}/final`, {final, note}); }
+};
+
+/* 세션(토큰) 보관 — 새로고침해도 서버 세션이 유지됩니다 */
+const Session = {
+  KEY:'regarde.session',
+  save(){
+    try{ localStorage.setItem(Session.KEY, JSON.stringify({token:S.token, user:S.user})); }catch{}
+  },
+  restore(){
+    try{
+      const raw = localStorage.getItem(Session.KEY);
+      if(!raw) return false;
+      const {token, user} = JSON.parse(raw);
+      if(!token || !user) return false;
+      S.token = token; S.user = user;
+      return true;
+    }catch{ return false; }
+  },
+  clear(){
+    S.token = null;
+    try{ localStorage.removeItem(Session.KEY); }catch{}
   }
 };
 
@@ -2248,7 +2878,7 @@ const API = {
 const Seed = {
   orders(){
     if(S.orders.length) return;
-    S.cards.push({brand:'비자', last4:'4412', exp:'09/28', name:'김리가', key:'billing_demo1'});
+    S.cards.push({brand:'비자', last4:'4412', expiry:'09/28', name:'김리가', key:'billing_demo1'});
     S.orders.push({
       id:'RG-084', type:'repair', title:'구찌 마몬트 숄더백', created:'2026.08.02', stage:4,
       price:{lo:210000, hi:390000, mo:300000, uplift:340000}, final:280000,
@@ -2266,8 +2896,43 @@ const Seed = {
 (function init(){
   Auth.mode('login');
   Shop.renderHome();
+  S.lastAddr = Address.restore();
+  try{ history.replaceState({screen:'auth'}, ''); }catch{}
+  if(!API.on()) $('#demoNote').hidden = false;
   if(CONFIG.SHOW_COST && CONFIG.API_BASE) $('#costmeter').classList.add('on');
-  document.addEventListener('keydown', e => { if(e.key === 'Escape') Sheet.close(); });
+
+  /* 키보드 조작: Esc 닫기 · 시트 안 포커스 가두기 · div/span 컨트롤을 Space/Enter 로 */
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape'){ Sheet.close(); return; }
+    if(e.key === 'Tab' && Sheet.isOpen()){
+      const f = A11y.focusables($('#sheet'));
+      if(f.length){
+        const first = f[0], last = f[f.length-1];
+        if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+        else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+      }
+      return;
+    }
+    const t = e.target;
+    if((e.key === ' ' || e.key === 'Enter') && t?.matches?.(A11y.SEL) && t.tagName !== 'BUTTON'){
+      e.preventDefault(); t.click();
+    }
+  });
+  /* 상태가 바뀐 컨트롤의 aria 값을 클릭 직후 동기화 */
+  document.addEventListener('click', e => {
+    const t = e.target?.closest?.('.check, .cl-row, .swtch, .chip, .catchip');
+    if(t) A11y.enhance(t.parentElement || document);
+  });
+  /* innerHTML 로 새로 그려진 영역에도 역할/키보드 속성을 붙입니다 */
+  A11y.enhance();
+  new MutationObserver(muts => {
+    for(const m of muts) for(const n of m.addedNodes) if(n.nodeType === 1) A11y.enhance(n.parentElement || document);
+  }).observe($('#app'), {childList:true, subtree:true});
+  /* 서버 모드에서 새로고침해도 로그인 상태를 유지합니다 */
+  if(API.on() && Session.restore()){
+    go('home', false); S.history = [];
+    Promise.all([Orders.sync(), Pay.sync()]).then(() => { if(S.screen === 'orders') Orders.render(); });
+  }
 })();
 </script>
 </body>

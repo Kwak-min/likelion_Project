@@ -23,13 +23,38 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-app.use(cors());
-app.use(express.json({ limit: '25mb' }));   // 사진을 base64 로 받으므로 넉넉히
+app.disable('x-powered-by');
+
+/* 최소한의 보안 응답 헤더 */
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  res.setHeader('Content-Security-Policy',
+    "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; " +
+    "script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
+    "img-src 'self' data: blob:; connect-src 'self'");
+  next();
+});
 
 const PORT = process.env.PORT || 8787;
-const JWT_SECRET = process.env.JWT_SECRET || 'regarde-dev-secret-change-me';
+const PROD = process.env.NODE_ENV === 'production';
+const DEFAULT_SECRET = 'regarde-dev-secret-change-me';
+const JWT_SECRET = process.env.JWT_SECRET || DEFAULT_SECRET;
+if (PROD && JWT_SECRET === DEFAULT_SECRET) {
+  console.error('✖ JWT_SECRET 이 기본값입니다. 프로덕션에서는 반드시 .env 에 별도 값을 넣어 주세요.');
+  process.exit(1);
+}
+/* 감정사 콘솔은 데모에서도 열어 둡니다. 운영(NODE_ENV=production)에서는 role 검사가 강제됩니다. */
+const DEMO_ADMIN = process.env.DEMO_ADMIN ? process.env.DEMO_ADMIN === '1' : !PROD;
 const BUDGET_USD = Number(process.env.BUDGET_USD || 100);
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY?.trim();
+if (!OPENAI_API_KEY) {
+  console.error('✖ OPENAI_API_KEY 가 비어 있습니다. .env 를 확인하세요.');
+  process.exit(1);
+}
+const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 
 /* 모델: 대화는 싼 모델, 검색·감정은 중간 모델.
    $100 크레딧 기준 상담 약 900건 분량입니다(README 계산 참고). */
@@ -39,18 +64,90 @@ const MODEL_VISION = process.env.MODEL_VISION || 'gpt-5.6-terra';
 
 /* 1M 토큰당 단가(USD). 요금이 바뀌면 여기만 고치면 됩니다. */
 const RATE = {
+  'gpt-4.1-mini':  { in: 0.40, out: 1.60 },
   'gpt-5.6-luna':  { in: 0.20, out: 1.20 },
   'gpt-5.6-terra': { in: 2.00, out: 12.00 },
   'gpt-5.6-sol':   { in: 5.00, out: 30.00 }
 };
 const WEB_SEARCH_CALL = 0.01;   // $10 / 1,000 calls
 
+/* 화면을 같은 오리진에서 서빙하므로 기본은 CORS 가 필요 없습니다.
+   다른 도메인에서 붙이려면 .env 의 CORS_ORIGIN 에 콤마로 나열하세요. */
+const ORIGINS = (process.env.CORS_ORIGIN || '').split(',').map(s => s.trim()).filter(Boolean);
+if (ORIGINS.length) app.use(cors({ origin: ORIGINS }));
+else if (!PROD) app.use(cors({ origin: [/^http:\/\/localhost(:\d+)?$/, /^http:\/\/127\.0\.0\.1(:\d+)?$/] }));
+
+/* 사진 업로드 경로만 크게, 나머지는 작게 (대용량 본문 DoS 방지) */
+app.use('/api/authenticate', express.json({ limit: '25mb' }));
+app.use(express.json({ limit: '256kb' }));
+
 /* ---------- 파일 저장소 ---------- */
 const DB_PATH = path.join(__dirname, 'data.json');
-const blank = { users: [], orders: [], cards: [], spend: 0, seq: 100 };
-let DB = fs.existsSync(DB_PATH) ? JSON.parse(fs.readFileSync(DB_PATH, 'utf8')) : { ...blank };
-const save = () => fs.writeFileSync(DB_PATH, JSON.stringify(DB, null, 2));
+const blank = () => ({ users: [], orders: [], cards: [], spend: 0, seq: 100 });   // 매번 새 배열
+function loadDB() {
+  if (!fs.existsSync(DB_PATH)) return blank();
+  try {
+    const parsed = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+    /* 기존 파일도 다음 기동부터 소유자 전용으로 바로잡습니다. */
+    try { fs.chmodSync(DB_PATH, 0o600); } catch {}
+    return { ...blank(), ...parsed };
+  } catch (e) {
+    /* 손상된 파일 때문에 서버가 못 뜨는 상황을 막고, 원본은 백업해 둡니다 */
+    const bak = DB_PATH + '.corrupt-' + Date.now();
+    fs.renameSync(DB_PATH, bak);
+    console.error(`✖ data.json 을 읽지 못해 새로 시작합니다. 원본: ${bak} (${e.message})`);
+    return blank();
+  }
+}
+let DB = loadDB();
+/* 쓰기 도중 프로세스가 죽어도 파일이 반쪽이 되지 않도록 임시파일에 쓴 뒤 교체합니다 */
+const save = () => {
+  const tmp = DB_PATH + '.tmp';
+  /* 해시·빌링키가 들어 있으므로 소유자만 읽도록 저장합니다 */
+  fs.writeFileSync(tmp, JSON.stringify(DB, null, 2), { mode: 0o600 });
+  fs.renameSync(tmp, DB_PATH);
+};
+
+/* ---------- 브루트포스 완화 (인메모리 슬라이딩 윈도) ---------- */
+const HITS = new Map();
+function rateLimit({ windowMs = 15 * 60_000, max = 10 } = {}) {
+  return (req, res, next) => {
+    const key = `${req.ip}|${req.path}|${normEmail(req.body?.email)}`;
+    const now = Date.now();
+    const list = (HITS.get(key) || []).filter(t => now - t < windowMs);
+    list.push(now);
+    HITS.set(key, list);
+    if (HITS.size > 5000) HITS.clear();
+    if (list.length > max) return res.status(429).json({ error: '시도가 너무 잦습니다. 잠시 후 다시 시도해 주세요' });
+    next();
+  };
+}
 const nextId = (p) => `${p}-${++DB.seq}`;
+const normEmail = (e) => String(e || '').trim().toLowerCase();
+const VALID_MODES = new Set(['sell', 'repair']);
+function sanePrice(p) {
+  if (!p || typeof p !== 'object' || Array.isArray(p)) return null;
+  const nums = ['lo', 'mo', 'hi'].map(k => Number(p[k]));
+  if (nums.some(n => !Number.isFinite(n) || n < 0 || n > 1e11)) return null;
+  if (nums[0] > nums[1] || nums[1] > nums[2]) return null;
+  return { lo: nums[0], mo: nums[1], hi: nums[2] };
+}
+function validImageDataUrl(value) {
+  return typeof value === 'string' &&
+    /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(value);
+}
+function luhnValid(digits) {
+  let sum = 0;
+  for (let i = digits.length - 1, flip = false; i >= 0; i--, flip = !flip) {
+    let n = Number(digits[i]);
+    if (flip && (n *= 2) > 9) n -= 9;
+    sum += n;
+  }
+  return sum % 10 === 0;
+}
+/* 화면(fmtD)과 같은 표기 — 2026.08.13 */
+const ymd = (d = new Date()) =>
+  `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
 
 /* ---------- 인증 미들웨어 ---------- */
 function auth(req, res, next) {
@@ -63,6 +160,16 @@ function auth(req, res, next) {
   } catch {
     res.status(401).json({ error: '세션이 만료됐습니다. 다시 로그인해 주세요' });
   }
+}
+
+/* 감정사·관리자 전용 */
+function appraiser(req, res, next) {
+  if (['appraiser', 'admin'].includes(req.user?.role)) return next();
+  if (DEMO_ADMIN) {
+    console.warn(`[demo] 감정사 권한 없이 접근 허용됨 — ${req.user?.email} ${req.method} ${req.originalUrl}`);
+    return next();
+  }
+  res.status(403).json({ error: '감정사 권한이 필요합니다' });
 }
 
 /* ---------- 비용 계산 + 예산 가드 ---------- */
@@ -103,10 +210,11 @@ function parseJSON(txt, fallback = null) {
 /* ============================================================
    회원가입 / 로그인
    ============================================================ */
-app.post('/api/auth/signup', async (req, res) => {
-  const { name, email, password, phone } = req.body || {};
-  if (!name || name.trim().length < 2) return res.status(400).json({ error: '이름을 2자 이상 입력해 주세요' });
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email || '')) return res.status(400).json({ error: '이메일 형식을 확인해 주세요' });
+app.post('/api/auth/signup', rateLimit({ max: 5 }), async (req, res) => {
+  const { name, password, phone } = req.body || {};
+  const email = normEmail(req.body?.email);   // 대소문자 차이로 계정이 갈리지 않도록 정규화
+  if (!name || name.trim().length < 2 || name.trim().length > 60) return res.status(400).json({ error: '이름은 2~60자로 입력해 주세요' });
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: '이메일 형식을 확인해 주세요' });
   if ((password || '').length < 8) return res.status(400).json({ error: '비밀번호는 8자 이상이어야 합니다' });
   if (!/[a-zA-Z]/.test(password) || !/\d/.test(password))
     return res.status(400).json({ error: '비밀번호에 영문과 숫자를 함께 넣어 주세요' });
@@ -118,17 +226,18 @@ app.post('/api/auth/signup', async (req, res) => {
     role: 'customer', created: new Date().toISOString()
   };
   DB.users.push(user); save();
-  const token = jwt.sign({ id: user.id, email, name: user.name, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+  const token = jwt.sign({ id: user.id, email, name: user.name, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
   res.json({ token, user: { id: user.id, name: user.name, email, phone: user.phone, role: user.role } });
 });
 
-app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body || {};
+app.post('/api/auth/login', rateLimit({ max: 8 }), async (req, res) => {
+  const { password } = req.body || {};
+  const email = normEmail(req.body?.email);
   const user = DB.users.find(u => u.email === email);
   // 사용자 유무를 구분해 알려주지 않습니다(계정 존재 여부 노출 방지)
   if (!user || !(await bcrypt.compare(password || '', user.hash)))
     return res.status(401).json({ error: '이메일 또는 비밀번호가 맞지 않습니다' });
-  const token = jwt.sign({ id: user.id, email, name: user.name, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+  const token = jwt.sign({ id: user.id, email, name: user.name, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
   res.json({ token, user: { id: user.id, name: user.name, email, phone: user.phone, role: user.role } });
 });
 
@@ -145,6 +254,15 @@ app.get('/api/me', auth, (req, res) => {
 app.post('/api/consult/message', auth, async (req, res) => {
   if (!guard(res)) return;
   const { mode = 'sell', history = [], slots = {} } = req.body || {};
+  if (!VALID_MODES.has(mode)) return res.status(400).json({ error: '상담 종류를 확인해 주세요' });
+  if (!Array.isArray(history) || history.length > 14 ||
+      history.some(m => !m || !['user', 'assistant'].includes(m.role) ||
+        typeof m.content !== 'string' || m.content.length > 4_000)) {
+    return res.status(400).json({ error: '상담 내역 형식을 확인해 주세요' });
+  }
+  if (!slots || typeof slots !== 'object' || Array.isArray(slots)) {
+    return res.status(400).json({ error: '상담 정보 형식을 확인해 주세요' });
+  }
   const system = mode === 'repair' ? REPAIR_SYSTEM : SELL_SYSTEM;
 
   try {
@@ -153,7 +271,7 @@ app.post('/api/consult/message', auth, async (req, res) => {
       instructions: system,
       input: [
         ...history.slice(-14).map(m => ({ role: m.role, content: m.content })),
-        { role: 'user', content: `[지금까지 채워진 슬롯]\n${JSON.stringify(slots)}` }
+        { role: 'user', content: `[지금까지 채워진 슬롯]\n${JSON.stringify(slots)}\n\n응답은 json 객체로만 반환하세요.` }
       ],
       text: { format: { type: 'json_object' } },
       max_output_tokens: 700
@@ -177,6 +295,11 @@ app.post('/api/consult/message', auth, async (req, res) => {
 app.post('/api/consult/report', auth, async (req, res) => {
   if (!guard(res)) return;
   const { mode = 'sell', slots = {}, photos = 0 } = req.body || {};
+  if (!VALID_MODES.has(mode)) return res.status(400).json({ error: '상담 종류를 확인해 주세요' });
+  if (!slots || typeof slots !== 'object' || Array.isArray(slots) ||
+      !Number.isInteger(photos) || photos < 0 || photos > 6) {
+    return res.status(400).json({ error: '상담 정보 형식을 확인해 주세요' });
+  }
   const sell = mode === 'sell';
   const s = { ...slots, photos };
 
@@ -215,9 +338,15 @@ app.post('/api/consult/report', auth, async (req, res) => {
     const d = parseJSON(outputText(r));
     if (!d) return res.status(502).json({ error: '검색 결과를 정리하지 못했습니다. 다시 시도해 주세요' });
 
-    const report = sell ? {
+      const repairItems = (d.items || []).map(i => ({
+        name: i.name + (i.official_only ? ' (정품 A/S 전용)' : ''),
+        lo: i.low, hi: i.high, days: i.days
+      }));
+      const dayMax = value => Math.max(...(String(value).match(/\d+/g) || ['0']).map(Number));
+      const longestRepair = repairItems.reduce((a, b) => dayMax(b.days) > dayMax(a.days) ? b : a, null);
+      const report = sell ? {
       mode: 'sell', title: s.item, item: s.item, slots: s,
-      created: new Date().toLocaleDateString('ko-KR'),
+      created: ymd(),
       summary: d.summary,
       price: {
         lo: d.buy_low, mo: Math.round((d.buy_low + d.buy_high) / 2), hi: d.buy_high,
@@ -225,7 +354,8 @@ app.post('/api/consult/report', auth, async (req, res) => {
         n: d.sample_size, consign: d.consign_estimate
       },
       cond: s.condition,
-      adj: (d.adjustments || []).reduce((a, b) => a + (b.percent || 0), 0) / 100,
+        adj: Math.max(-0.30, Math.min(0.12,
+          (d.adjustments || []).reduce((a, b) => a + (b.percent || 0), 0) / 100)),
       auth: {
         score: d.auth_score, level: d.auth_level, warn: d.warning, brand: s.item,
         checks: (d.auth_checks || []).map(c => ({ k: c.point, v: c.detail, st: c.status }))
@@ -233,11 +363,11 @@ app.post('/api/consult/report', auth, async (req, res) => {
       comps: (d.comps || []).map(c => ({ t: c.title, p: c.price, src: c.source, d: c.date, url: c.url }))
     } : {
       mode: 'repair', title: s.item, item: s.item, slots: s,
-      created: new Date().toLocaleDateString('ko-KR'),
+      created: ymd(),
       summary: d.summary,
       price: { lo: d.total_low, mo: Math.round((d.total_low + d.total_high) / 2), hi: d.total_high, uplift: d.resale_uplift },
-      items: (d.items || []).map(i => ({ name: i.name + (i.official_only ? ' (정품 A/S 전용)' : ''), lo: i.low, hi: i.high, days: i.days })),
-      days: d.items?.[0]?.days || '5~7일',
+        items: repairItems,
+        days: longestRepair?.days || '5~7일',
       auth: { score: 0, level: '-', checks: [], warn: d.caution || '', brand: '' }
     };
 
@@ -255,7 +385,17 @@ app.post('/api/consult/report', auth, async (req, res) => {
 app.post('/api/authenticate', auth, async (req, res) => {
   if (!guard(res)) return;
   const { slots = {}, images = [] } = req.body || {};
-  if (!images.length) return res.status(400).json({ error: '사진을 1장 이상 올려 주세요' });
+  if (!slots || typeof slots !== 'object' || Array.isArray(slots)) {
+    return res.status(400).json({ error: '상담 정보 형식을 확인해 주세요' });
+  }
+  if (!Array.isArray(images) || !images.length) return res.status(400).json({ error: '사진을 1장 이상 올려 주세요' });
+  if (images.length > 6) return res.status(400).json({ error: '사진은 한 번에 6장까지 올릴 수 있습니다' });
+  if (images.some(u => !validImageDataUrl(u))) {
+    return res.status(400).json({ error: '사진은 JPEG, PNG, WebP 파일만 올려 주세요' });
+  }
+  if (images.some(u => u.length > 8 * 1024 * 1024)) {
+    return res.status(413).json({ error: '사진 한 장은 6MB 이하여야 합니다' });
+  }
 
   try {
     const r = await openai.responses.create({
@@ -286,12 +426,39 @@ app.post('/api/authenticate', auth, async (req, res) => {
 const STAGE_COUNT = { sell: 6, repair: 6, buy: 4 };
 
 app.post('/api/orders', auth, (req, res) => {
-  const { type, title, report, pickup, price } = req.body || {};
+  const { type, title, report, pickup } = req.body || {};
   if (!['sell', 'repair', 'buy'].includes(type)) return res.status(400).json({ error: '접수 종류를 확인해 주세요' });
+  if (!title || String(title).trim().length < 1) return res.status(400).json({ error: '접수 제목이 필요합니다' });
+  let safePickup = null;
+  if (type !== 'buy') {
+    if (!pickup || typeof pickup !== 'object' || Array.isArray(pickup) ||
+        !['direct', 'parcel'].includes(pickup.mode) ||
+        typeof pickup.addr !== 'string' || !pickup.addr.trim() || pickup.addr.length > 300 ||
+        typeof pickup.date !== 'string' || pickup.date.length > 40 ||
+        typeof pickup.time !== 'string' || pickup.time.length > 40) {
+      return res.status(400).json({ error: '픽업 정보를 확인해 주세요' });
+    }
+    safePickup = {
+      mode: pickup.mode, date: pickup.date.trim(), time: pickup.time.trim(),
+      addr: pickup.addr.trim(), memo: typeof pickup.memo === 'string' ? pickup.memo.slice(0, 1_000) : '',
+      box: Boolean(pickup.box)
+    };
+  }
+  /* 매입·수선 금액은 클라이언트 값을 믿지 않고 AI 리포트에서만 가져옵니다.
+     구매(buy)는 카탈로그가 아직 프런트에 있어 리포트에 담긴 가격을 검증만 하고 씁니다.
+     TODO: 카탈로그를 서버로 옮기면 productId 로 대체하세요. */
+  const sane = (p) => {
+    if (!p || typeof p !== 'object') return null;
+    const nums = ['lo', 'mo', 'hi'].map(k => Number(p[k]));
+    if (nums.some(n => !Number.isFinite(n) || n < 0 || n > 1e11)) return null;
+    return { lo: nums[0], mo: nums[1], hi: nums[2] };
+  };
+  const price = sanePrice(report?.price);
+  if (!price) return res.status(400).json({ error: type === 'buy' ? '결제 금액을 확인해 주세요' : 'AI 리포트의 금액을 확인해 주세요' });
   const o = {
-    id: nextId('RG'), userId: req.user.id, type, title,
+    id: nextId('RG'), userId: req.user.id, type, title: String(title).slice(0, 120),
     created: new Date().toISOString(), stage: type === 'buy' ? 0 : 1,
-    price: price || report?.price || null, report: report || null, pickup: pickup || null,
+    price, report: report || null, pickup: safePickup,
     final: null, finalNote: ''
   };
   DB.orders.unshift(o); save();
@@ -302,18 +469,26 @@ app.get('/api/orders', auth, (req, res) => {
   res.json({ orders: DB.orders.filter(o => o.userId === req.user.id) });
 });
 
-/* 감정사 전용 — 실제 운영에서는 role 검사를 반드시 켜 두세요 */
-app.get('/api/admin/queue', auth, (req, res) => {
+/* 감정사 전용 */
+app.get('/api/admin/queue', auth, appraiser, (req, res) => {
   res.json({ orders: DB.orders.filter(o => o.type !== 'buy') });
 });
 
-app.post('/api/admin/orders/:id/final', auth, (req, res) => {
+app.post('/api/admin/orders/:id/final', auth, appraiser, (req, res) => {
   const o = DB.orders.find(x => x.id === req.params.id);
   if (!o) return res.status(404).json({ error: '접수를 찾을 수 없습니다' });
   const { final, note } = req.body || {};
-  if (!Number.isFinite(final) || final <= 0) return res.status(400).json({ error: '확정 금액을 확인해 주세요' });
-  o.final = final; o.finalNote = note || '';
-  o.stage = o.type === 'sell' ? 4 : 3;
+  const finalNote = String(note || '').trim().slice(0, 1000);
+  if (!Number.isFinite(final) || final <= 0 || final > 1e11) {
+    return res.status(400).json({ error: '확정 금액을 확인해 주세요' });
+  }
+  const reference = Number(o.price?.mo);
+  if (Number.isFinite(reference) && reference > 0 &&
+      (final < reference * 0.4 || final > reference * 1.6) && finalNote.length < 12) {
+    return res.status(400).json({ error: '예상가와 크게 다른 금액은 사유를 12자 이상 입력해 주세요' });
+  }
+  o.final = final; o.finalNote = finalNote;
+  o.stage = Math.max(o.stage ?? 0, o.type === 'sell' ? 4 : 3);   // 진행 단계를 뒤로 되돌리지 않습니다
   save();
   res.json({ order: o });
 });
@@ -321,7 +496,54 @@ app.post('/api/admin/orders/:id/final', auth, (req, res) => {
 app.post('/api/orders/:id/stage', auth, (req, res) => {
   const o = DB.orders.find(x => x.id === req.params.id);
   if (!o) return res.status(404).json({ error: '접수를 찾을 수 없습니다' });
+  /* 진행 단계는 내부 업무 상태입니다. 감정사·관리자만 변경할 수 있습니다. */
+  const isStaff = ['appraiser', 'admin'].includes(req.user.role) || DEMO_ADMIN;
+  if (!isStaff) return res.status(403).json({ error: '감정사 권한이 필요합니다' });
   o.stage = Math.min((o.stage ?? 0) + 1, STAGE_COUNT[o.type] - 1);
+  save();
+  res.json({ order: o });
+});
+
+/* 고객의 매입 제안 수락은 허용하되, 그 결과를 서버에 영속합니다. */
+app.post('/api/orders/:id/accept', auth, (req, res) => {
+  const o = DB.orders.find(x => x.id === req.params.id && x.userId === req.user.id);
+  if (!o) return res.status(404).json({ error: '접수를 찾을 수 없습니다' });
+  if (o.type !== 'sell' || !o.final || o.stage !== 4) {
+    return res.status(409).json({ error: '현재 수락할 수 있는 매입 제안이 없습니다' });
+  }
+  o.stage = STAGE_COUNT.sell - 1;
+  o.acceptedAt = new Date().toISOString();
+  save();
+  res.json({ order: o });
+});
+
+app.post('/api/orders/:id/decline', auth, (req, res) => {
+  const o = DB.orders.find(x => x.id === req.params.id && x.userId === req.user.id);
+  if (!o) return res.status(404).json({ error: '접수를 찾을 수 없습니다' });
+  if (o.type !== 'sell' || !o.final || o.stage !== 4) {
+    return res.status(409).json({ error: '현재 반송을 요청할 수 있는 매입 제안이 없습니다' });
+  }
+  o.final = null;
+  o.returned = true;
+  o.returnedAt = new Date().toISOString();
+  o.stage = STAGE_COUNT.sell - 1;
+  save();
+  res.json({ order: o });
+});
+
+/* 실제 PG 연동 전에는 운영 환경에서 수선비를 결제 완료로 처리하지 않습니다.
+   개발 환경에서만 빌링키 흐름을 검증할 수 있도록 명시적인 개발 결제로 기록합니다. */
+app.post('/api/orders/:id/repair-payment', auth, (req, res) => {
+  const o = DB.orders.find(x => x.id === req.params.id && x.userId === req.user.id);
+  if (!o) return res.status(404).json({ error: '접수를 찾을 수 없습니다' });
+  if (o.type !== 'repair' || !o.final || o.stage !== 3) {
+    return res.status(409).json({ error: '현재 결제할 수 있는 수선 견적이 없습니다' });
+  }
+  const card = DB.cards.find(c => c.userId === req.user.id);
+  if (!card) return res.status(409).json({ error: '결제수단을 먼저 등록해 주세요' });
+  if (PROD) return res.status(503).json({ error: '수선 결제 연동을 준비 중입니다. 담당자가 안내드리겠습니다' });
+  o.stage = 4;
+  o.payment = { status: 'development_paid', cardId: card.id, paidAt: new Date().toISOString() };
   save();
   res.json({ order: o });
 });
@@ -336,7 +558,11 @@ app.post('/api/billing-keys', auth, async (req, res) => {
   const { cardNumber, expiry, birth, pwd2 } = req.body || {};
   const digits = (cardNumber || '').replace(/\D/g, '');
   if (digits.length < 15) return res.status(400).json({ error: '카드번호를 확인해 주세요' });
+  if (!luhnValid(digits)) return res.status(400).json({ error: '카드번호를 확인해 주세요' });
   if (!/^\d{2}\/\d{2}$/.test(expiry || '')) return res.status(400).json({ error: '유효기간을 MM/YY 형식으로 입력해 주세요' });
+  if (Number(expiry.slice(0, 2)) < 1 || Number(expiry.slice(0, 2)) > 12) {
+    return res.status(400).json({ error: '유효기간의 월을 확인해 주세요' });
+  }
   if (!/^\d{6}$/.test(birth || '')) return res.status(400).json({ error: '생년월일 6자리를 입력해 주세요' });
   if (!/^\d{2}$/.test(pwd2 || '')) return res.status(400).json({ error: '카드 비밀번호 앞 2자리를 입력해 주세요' });
 
@@ -378,6 +604,13 @@ app.delete('/api/billing-keys/:id', auth, (req, res) => {
 
 /* ---------- 운영 확인용 ---------- */
 app.get('/api/health', (req, res) => {
+  /* 사용자 수·누적 지출 같은 내부 지표는 감정사/관리자에게만 (개발 모드 제외) */
+  let staff = DEMO_ADMIN;
+  const h = req.headers.authorization || '';
+  if (h.startsWith('Bearer ')) {
+    try { staff = staff || ['appraiser', 'admin'].includes(jwt.verify(h.slice(7), JWT_SECRET).role); } catch {}
+  }
+  if (!staff) return res.json({ ok: true });
   res.json({
     ok: true, model: { chat: MODEL_CHAT, search: MODEL_SEARCH, vision: MODEL_VISION },
     spend_usd: DB.spend, budget_usd: BUDGET_USD, budget_left: budgetLeft(),
@@ -385,8 +618,25 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+/* ---------- 프런트 정적 서빙 ----------
+   서버 하나로 http://localhost:PORT 에서 화면까지 열립니다(같은 오리진이라 CORS 문제 없음). */
+/* 이 앱은 인라인 단일 페이지입니다. HTML 진입점 하나만 공개하고 서버 구현·프롬프트·개발 데이터는 노출하지 않습니다. */
+app.get('/', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8')
+    .replace("API_BASE: ''", 'API_BASE: location.origin');
+  res.type('html').send(html);
+});
+
+/* ---------- 404 / 전역 에러 ---------- */
+app.use((req, res) => res.status(404).json({ error: '요청한 경로를 찾을 수 없습니다' }));
+app.use((err, req, res, _next) => {
+  const status = err.status || err.statusCode || 500;
+  if (status >= 500) console.error('[unhandled]', err);
+  res.status(status).json({ error: status === 400 ? '요청 형식을 확인해 주세요' : '서버에서 처리하지 못했습니다' });
+});
+
 app.listen(PORT, () => {
-  console.log(`RE:GARDE API — http://localhost:${PORT}`);
+  console.log(`RE:GARDE — http://localhost:${PORT} (화면 + API)`);
   console.log(`남은 예산 $${budgetLeft().toFixed(2)} / $${BUDGET_USD}`);
-  if (!process.env.OPENAI_API_KEY) console.warn('⚠ OPENAI_API_KEY 가 비어 있습니다. .env 를 확인하세요.');
 });
