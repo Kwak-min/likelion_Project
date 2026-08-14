@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 44" width="260" height="44" role="img" aria-label="RE:GARDE">
+  <title>RE:GARDE</title>
+  <desc>감정 인장(원)과 수선 스티치(점선)로 그린 R 마크 + 워드마크</desc>
+  <g fill="none" stroke="#111110" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <!-- 감정 인장 -->
+    <circle cx="22" cy="22" r="19.2"/>
+    <!-- R : 위쪽은 실선(원형 그대로), 다리는 점선 = 수선한 자국 -->
+    <path d="M15.5 12.4 V31.6"/>
+    <path d="M15.5 12.4 H23.2 a5.9 5.9 0 0 1 0 11.8 H15.5"/>
+    <path d="M21.4 24.2 L29.2 31.9" stroke-dasharray="3 2.6"/>
+  </g>
+  <text x="56" y="28.5"
+        font-family="'Helvetica Neue',Helvetica,Inter,Arial,sans-serif"
+        font-size="18" font-weight="600" letter-spacing="5.6" fill="#111110">RE:GARDE</text>
+  <text x="57.5" y="39"
+        font-family="'Helvetica Neue',Helvetica,Inter,Arial,sans-serif"
+        font-size="6.5" font-weight="400" letter-spacing="2.4" fill="#8d8c86">CARE MAKES VALUE</text>
+</svg>
