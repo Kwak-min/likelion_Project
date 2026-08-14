@@ -23,9 +23,18 @@ import {
 } from './prompts.js';
 import {
   buildConsultInput,
+  consultationCorrection,
+  consultationReset,
   hasItemSymptomConflict,
+  itemDetailRequest,
   normalizeAuthenticityLikelihood
 } from './consult-context.js';
+import { devLoginUser } from './dev-login.js';
+import {
+  assertPublicProductUrl,
+  buildProductLinkPrompt,
+  PRODUCT_LINK_SCHEMA
+} from './product-link.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -239,12 +248,54 @@ app.post('/api/auth/signup', rateLimit({ max: 5 }), async (req, res) => {
 app.post('/api/auth/login', rateLimit({ max: 8 }), async (req, res) => {
   const { password } = req.body || {};
   const email = normEmail(req.body?.email);
+  const demoUser = devLoginUser(email, password, PROD);
+  if (demoUser) {
+    const token = jwt.sign(demoUser, JWT_SECRET, { expiresIn: '7d' });
+    return res.json({ token, user: demoUser });
+  }
   const user = DB.users.find(u => u.email === email);
   // 사용자 유무를 구분해 알려주지 않습니다(계정 존재 여부 노출 방지)
   if (!user || !(await bcrypt.compare(password || '', user.hash)))
     return res.status(401).json({ error: '이메일 또는 비밀번호가 맞지 않습니다' });
   const token = jwt.sign({ id: user.id, email, name: user.name, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
   res.json({ token, user: { id: user.id, name: user.name, email, phone: user.phone, role: user.role } });
+});
+
+app.post('/api/consult/product-link', auth, async (req, res) => {
+  if (!guard(res)) return;
+  const url = await assertPublicProductUrl(req.body?.url);
+  if (!url) return res.status(400).json({ error: '공개된 HTTP 상품 링크를 확인해 주세요' });
+
+  try {
+    const r = await openai.responses.create({
+      model: MODEL_SEARCH,
+      reasoning: { effort: 'medium' },
+      tools: [{ type: 'web_search', search_context_size: 'medium' }],
+      tool_choice: 'required',
+      include: ['web_search_call.action.sources'],
+      input: buildProductLinkPrompt(url.href),
+      text: {
+        format: {
+          type: 'json_schema',
+          name: 'product_link',
+          schema: PRODUCT_LINK_SCHEMA,
+          strict: true
+        }
+      },
+      max_output_tokens: 1000
+    });
+    const result = parseJSON(outputText(r));
+    if (!result?.identified_item) {
+      return res.status(422).json({ error: '링크에서 정확한 제품 정보를 찾지 못했습니다' });
+    }
+    const searches = countSearches(r);
+    const usd = chargeOf(MODEL_SEARCH, r.usage, searches);
+    spend(usd);
+    res.json({ result, usd, searches, budget_left: budgetLeft() });
+  } catch (e) {
+    console.error('[consult/product-link]', e.message);
+    res.status(502).json({ error: '상품 링크를 확인하지 못했습니다. 다른 공개 링크를 보내 주세요' });
+  }
 });
 
 app.get('/api/me', auth, (req, res) => {
@@ -269,6 +320,33 @@ app.post('/api/consult/message', auth, async (req, res) => {
   if (!slots || typeof slots !== 'object' || Array.isArray(slots)) {
     return res.status(400).json({ error: '상담 정보 형식을 확인해 주세요' });
   }
+  const latestUser = [...history].reverse().find(message => message.role === 'user')?.content || '';
+  const correction = consultationCorrection(latestUser, slots);
+  if (correction) {
+    return res.json({
+      reply: correction.reply,
+      quick_replies: [],
+      slots: correction.slots,
+      reset_slots: true,
+      next_slot: 'item',
+      ready_for_search: false,
+      usd: 0,
+      budget_left: budgetLeft()
+    });
+  }
+  const reset = consultationReset(latestUser, slots);
+  if (reset) {
+    return res.json({
+      reply: reset.reply,
+      quick_replies: [],
+      slots: reset.slots,
+      reset_slots: true,
+      next_slot: 'item',
+      ready_for_search: false,
+      usd: 0,
+      budget_left: budgetLeft()
+    });
+  }
   const system = mode === 'repair' ? REPAIR_SYSTEM : SELL_SYSTEM;
 
   try {
@@ -284,6 +362,13 @@ app.post('/api/consult/message', auth, async (req, res) => {
     const data = parseJSON(outputText(r), {
       reply: '다시 한 번 말씀해 주시겠어요?', quick_replies: [], slots, ready_for_search: false
     });
+    const detailRequest = itemDetailRequest(data.slots?.item || slots.item);
+    if (detailRequest) {
+      data.reply = detailRequest.reply;
+      data.quick_replies = detailRequest.quickReplies;
+      data.next_slot = 'item';
+      data.ready_for_search = false;
+    }
     if (mode === 'repair' && hasItemSymptomConflict(data.slots?.item || slots.item, data.slots?.symptom)) {
       data.slots = { ...slots, ...data.slots, symptom: '' };
       data.reply = `앞서 말씀하신 ${data.slots.item || '시계'}에는 보통 지퍼가 없습니다. 고장 난 부위를 다시 설명해 주시겠어요?`;

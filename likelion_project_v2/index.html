@@ -1923,6 +1923,16 @@ const Consult = {
         .map(m => ({role:m.who === 'me' ? 'user' : 'assistant', content:m.text}));
       const data = await API.consultMessage(c.mode, history, c.slots);
       if(data.usd) addCost(data.usd);
+      if(data.reset_slots){
+        c.slots = {};
+        c.photos.forEach(photo => photo.url && URL.revokeObjectURL(photo.url));
+        c.photos = [];
+        c.step = 0;
+        c.kb = AUTHKB['기본'];
+        Consult.thumbs();
+        Consult.steps();
+        $('#chatSub').textContent = (c.mode === 'sell' ? Consult.SELL_SUB : Consult.REPAIR_SUB).item;
+      }
       if(data.slots && typeof data.slots === 'object'){
         for(const [key, value] of Object.entries(data.slots)){
           if(value !== '' && value !== null && value !== undefined) c.slots[key] = value;
@@ -1972,12 +1982,33 @@ const Consult = {
     if(!text && !hasPhoto) return;
     c.busy = true;
     if(text){ Consult.push('me', text); el.value = ''; Consult.grow(el); }
+    if(/^https?:\/\/\S+$/i.test(text) && API.on()){
+      const identified = await Consult.identifyLink(text);
+      if(identified){
+        c.slots.item = identified.identified_item;
+        text = identified.identified_item;
+      }
+    }
     if(hasPhoto){
       Consult.push('sys', `사진 ${c.photos.length}장 전송됨`);
     }
     Consult.chips([]);
     await (c.mode === 'sell' ? Consult.sellTurn(text) : Consult.repairTurn(text));
     c.busy = false;
+  },
+  async identifyLink(url){
+    try{
+      Consult.push('sys', '상품 링크를 직접 확인하는 중입니다');
+      const data = await API.post('/api/consult/product-link', {url});
+      if(data.usd) addCost(data.usd);
+      const result = data.result;
+      await Consult.ai(`링크에서 **${result.identified_item}** 제품을 확인했습니다. 이 제품이 맞나요?`,
+        ['네, 맞아요', '다른 제품이에요']);
+      return result;
+    }catch(e){
+      Consult.push('sys', e.message || '상품 링크를 확인하지 못했습니다');
+      return null;
+    }
   },
 
   /* 슬롯 채우는 순서 — AI가 돌려주는 next_slot 값과 그대로 맞춰야 합니다 (prompts.js 참고) */

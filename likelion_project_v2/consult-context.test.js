@@ -3,7 +3,10 @@ import test from 'node:test';
 
 import {
   buildConsultInput,
+  consultationCorrection,
+  consultationReset,
   hasItemSymptomConflict,
+  itemDetailRequest,
   normalizeAuthenticityLikelihood
 } from './consult-context.js';
 
@@ -26,6 +29,46 @@ test('consult input keeps the full dialogue before the slot snapshot', () => {
 test('watch and zipper are treated as a conflict, not a completed symptom', () => {
   assert.equal(hasItemSymptomConflict('시계', '지퍼 고장'), true);
   assert.equal(hasItemSymptomConflict('가방', '지퍼 고장'), false);
+});
+
+test('generic branded items request a specific line or reference', () => {
+  assert.deepEqual(itemDetailRequest('롤렉스 시계'), {
+    reply: '롤렉스의 어떤 모델인가요? 서브마리너, 데이토나, 데이트저스트처럼 모델명이나 문자판·케이스의 레퍼런스 번호를 알려주세요.',
+    quickReplies: ['서브마리너', '데이토나', '데이트저스트', 'GMT-마스터 II', '잘 모르겠어요']
+  });
+  assert.equal(itemDetailRequest('롤렉스 서브마리너 126610LN'), null);
+  assert.notEqual(itemDetailRequest('샤넬 가방'), null);
+});
+
+test('changing to another product clears dependent consultation slots', () => {
+  const slots = {
+    item: '롤렉스 서브마리너 126610LN',
+    purchase: '2024년 백화점',
+    condition: '미사용',
+    evidence: '보증서 있음',
+    photos: 3
+  };
+
+  assert.deepEqual(consultationReset('그거 아니고 다른 제품이에요', slots), {
+    reset: true,
+    slots: {},
+    reply: '알겠습니다. 이전 제품 정보는 지웠습니다. 새로 상담할 제품의 브랜드와 모델명을 알려주세요.'
+  });
+  assert.equal(consultationReset('다른 색상이에요', slots), null);
+});
+
+test('a newly named brand replaces the stale item immediately', () => {
+  const slots = { item: '롤렉스', symptom: '', photos: 0 };
+
+  assert.deepEqual(consultationCorrection('아 구찌 팔거야', slots), {
+    slots: { item: '구찌' },
+    reply: '구찌의 어떤 제품인가요? 가방, 지갑, 신발처럼 품목과 모델명이나 라인명을 알려주세요.'
+  });
+  assert.deepEqual(consultationCorrection('아니 구찌로 변경한다고', slots), {
+    slots: { item: '구찌' },
+    reply: '구찌의 어떤 제품인가요? 가방, 지갑, 신발처럼 품목과 모델명이나 라인명을 알려주세요.'
+  });
+  assert.equal(consultationCorrection('롤렉스 서브마리너예요', slots), null);
 });
 
 test('authenticity likelihood is bounded and confidence-aware', () => {
