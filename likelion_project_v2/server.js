@@ -18,8 +18,14 @@ import 'dotenv/config';
 
 import {
   SELL_SYSTEM, REPAIR_SYSTEM, PRICE_SEARCH, REPAIR_SEARCH, VISION_AUTH,
-  SELL_REPORT_SCHEMA, REPAIR_REPORT_SCHEMA, VISION_SCHEMA
+  buildPhotoMarketSearch, SELL_REPORT_SCHEMA, REPAIR_REPORT_SCHEMA,
+  PHOTO_ANALYSIS_SCHEMA, PHOTO_MARKET_SCHEMA
 } from './prompts.js';
+import {
+  buildConsultInput,
+  hasItemSymptomConflict,
+  normalizeAuthenticityLikelihood
+} from './consult-context.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -269,10 +275,7 @@ app.post('/api/consult/message', auth, async (req, res) => {
     const r = await openai.responses.create({
       model: MODEL_CHAT,
       instructions: system,
-      input: [
-        ...history.slice(-14).map(m => ({ role: m.role, content: m.content })),
-        { role: 'user', content: `[지금까지 채워진 슬롯]\n${JSON.stringify(slots)}\n\n응답은 json 객체로만 반환하세요.` }
-      ],
+      input: buildConsultInput(history.slice(-14), slots),
       text: { format: { type: 'json_object' } },
       max_output_tokens: 700
     });
@@ -281,6 +284,13 @@ app.post('/api/consult/message', auth, async (req, res) => {
     const data = parseJSON(outputText(r), {
       reply: '다시 한 번 말씀해 주시겠어요?', quick_replies: [], slots, ready_for_search: false
     });
+    if (mode === 'repair' && hasItemSymptomConflict(data.slots?.item || slots.item, data.slots?.symptom)) {
+      data.slots = { ...slots, ...data.slots, symptom: '' };
+      data.reply = `앞서 말씀하신 ${data.slots.item || '시계'}에는 보통 지퍼가 없습니다. 고장 난 부위를 다시 설명해 주시겠어요?`;
+      data.quick_replies = ['용두가 빠졌어요', '버클이 고장났어요', '줄이 끊어졌어요', '시간이 맞지 않아요'];
+      data.next_slot = 'symptom';
+      data.ready_for_search = false;
+    }
     res.json({ ...data, usd, budget_left: budgetLeft() });
   } catch (e) {
     console.error('[consult/message]', e.message);
@@ -408,12 +418,50 @@ app.post('/api/authenticate', auth, async (req, res) => {
           ...images.slice(0, 6).map(url => ({ type: 'input_image', image_url: url, detail: 'high' }))
         ]
       }],
-      text: { format: { type: 'json_schema', name: 'vision_auth', schema: VISION_SCHEMA, strict: true } },
+      text: { format: { type: 'json_schema', name: 'photo_analysis', schema: PHOTO_ANALYSIS_SCHEMA, strict: true } },
       max_output_tokens: 1600
     });
-    const usd = chargeOf(MODEL_VISION, r.usage);
+    const vision = parseJSON(outputText(r));
+    if (!vision) return res.status(502).json({ error: '사진 분석 결과를 정리하지 못했습니다' });
+    vision.authenticity_likelihood = normalizeAuthenticityLikelihood(
+      vision.authenticity_likelihood,
+      vision.need_more_photos
+    );
+
+    const marketResponse = await openai.responses.create({
+      model: MODEL_SEARCH,
+      reasoning: { effort: 'medium' },
+      tools: [{
+        type: 'web_search',
+        search_context_size: 'medium',
+        user_location: { type: 'approximate', country: 'KR', timezone: 'Asia/Seoul' }
+      }],
+      tool_choice: 'required',
+      include: ['web_search_call.action.sources'],
+      input: buildPhotoMarketSearch(vision),
+      text: {
+        format: {
+          type: 'json_schema',
+          name: 'photo_market',
+          schema: PHOTO_MARKET_SCHEMA,
+          strict: true
+        }
+      },
+      max_output_tokens: 1800
+    });
+    const market = parseJSON(outputText(marketResponse));
+    if (!market) return res.status(502).json({ error: '현재 시세를 정리하지 못했습니다' });
+
+    const searches = countSearches(marketResponse);
+    const usd = chargeOf(MODEL_VISION, r.usage) +
+      chargeOf(MODEL_SEARCH, marketResponse.usage, searches);
     spend(usd);
-    res.json({ result: parseJSON(outputText(r)), usd, budget_left: budgetLeft() });
+    res.json({
+      result: { ...vision, market },
+      usd,
+      searches,
+      budget_left: budgetLeft()
+    });
   } catch (e) {
     console.error('[authenticate]', e.message);
     res.status(502).json({ error: '사진을 분석하지 못했습니다. 밝은 곳에서 다시 찍어 올려 주세요' });

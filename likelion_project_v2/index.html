@@ -1972,7 +1972,7 @@ const Consult = {
     if(!text && !hasPhoto) return;
     c.busy = true;
     if(text){ Consult.push('me', text); el.value = ''; Consult.grow(el); }
-    if(hasPhoto && c.step === (c.mode==='sell' ? 4 : 2)){
+    if(hasPhoto){
       Consult.push('sys', `사진 ${c.photos.length}장 전송됨`);
     }
     Consult.chips([]);
@@ -2108,7 +2108,7 @@ const Consult = {
       }
       return;
     }
-    if(c.step === 2){
+    if(c.step === 2 && !text){
       c.slots.photos = c.photos.length;
       c.step = 3; Consult.steps();
       $('#chatSub').textContent = Consult.REPAIR_SUB.history;
@@ -2291,18 +2291,24 @@ const Report = {
       </div>
 
       <div class="stitch"></div>
-      <div class="lab">AI 1차 감정 — ${esc(r.auth.brand)}</div>
+      <div class="lab">AI 사진 기반 1차 감정 — ${esc(r.auth.brand)}</div>
       <div class="verdict">
         <div class="g">${r.auth.level === '통과' ? 'A' : r.auth.level === '주의' ? 'B' : 'C'}</div>
-        <div class="gm"><div class="s">${r.auth.score} / 100 · ${esc(r.auth.level)}</div>
-          <div class="p">사진과 응답으로 확인한 1차 판정입니다.<br>최종 판정은 감정사가 실물로 진행합니다.</div></div>
+        <div class="gm"><div class="s">진품 가능성 ${r.auth.likelihood ?? r.auth.score}% · ${esc(r.auth.level)}</div>
+          <div class="p">사진에서 확인 가능한 특징만 반영한 가능성입니다.<br>진품 확정이 아니며 최종 판정은 감정사가 실물로 진행합니다.</div></div>
       </div>
       <div style="margin-top:12px">
         ${r.auth.checks.map(c => `<div class="kv"><span class="k" style="flex:1">${esc(c.k)}<br>
           <span style="font-size:10px;color:var(--mut)">${esc(c.v)}</span></span>
           <span class="v" style="white-space:nowrap">${stMark[c.st] || '·'} ${stTxt[c.st] || '확인 중'}</span></div>`).join('')}
       </div>
-      <p class="note" style="margin-top:12px">⚠ ${esc(r.auth.warn)}</p>`;
+      <p class="note" style="margin-top:12px">⚠ ${esc(r.auth.warn)}</p>
+      ${r.photoAnalysis?.need_more_photos?.length ? `<p class="note" style="margin-top:8px"><b>추가 사진 필요</b><br>${r.photoAnalysis.need_more_photos.map(esc).join('<br>')}</p>` : ''}
+      ${r.market ? `<div class="stitch"></div>
+        <div class="lab">현재 가격 형성 근거</div>
+        <p class="note" style="margin-top:10px">${esc(r.market.summary)}</p>
+        <div style="margin-top:10px">${(r.market.drivers || []).map(d =>
+          `<div class="kv"><span class="k">${esc(d)}</span></div>`).join('')}</div>` : ''}`;
     } else {
       html += `
       <div class="stitch"></div>
@@ -2870,26 +2876,41 @@ const API = {
   async report(c){
     try{
       const images = await Consult.dataUrls();
+      let photoAnalysis = null;
+      if(images.length){
+        const v = await API.post('/api/authenticate', {slots:c.slots, images});
+        if(v?.usd) addCost(v.usd);
+        photoAnalysis = v?.result || null;
+        if(photoAnalysis?.identified_item && !c.slots.item){
+          c.slots.item = photoAnalysis.identified_item;
+        }
+      }
       const data = await API.post('/api/consult/report', {
         mode:c.mode, slots:c.slots, photos:c.photos.length, locale:'ko-KR'
       });
       if(data.usd) addCost(data.usd);
       const report = data.report;
-      /* 사진이 있으면 비전 1차 감정 결과를 리포트에 합칩니다 */
-      if(images.length && c.mode === 'sell'){
-        try{
-          const v = await API.post('/api/authenticate', {slots:c.slots, images});
-          if(v?.usd) addCost(v.usd);
-          const r = v?.result;
-          /* VISION_SCHEMA 필드명 그대로 매핑합니다 (auth_score / auth_level / checks / risk_signals) */
-          if(r) report.auth = {
-            score: r.auth_score ?? report.auth?.score ?? 0,
-            level: r.auth_level ?? report.auth?.level ?? '-',
-            warn: (Array.isArray(r.risk_signals) ? r.risk_signals.join(' · ') : r.risk_signals) || report.auth?.warn || '',
-            brand: report.auth?.brand || '',
-            checks: (r.checks || report.auth?.checks || []).map(x => x.point ? {k:x.point, v:x.detail, st:x.status} : x)
-          };
-        }catch(e){ toast('사진 감정은 건너뛰었습니다 — ' + e.message); }
+      if(photoAnalysis){
+        const r = photoAnalysis;
+        report.photoAnalysis = r;
+        report.title = r.identified_item || report.title;
+        report.auth = {
+          score: r.authenticity_likelihood ?? report.auth?.score ?? 0,
+          likelihood: r.authenticity_likelihood ?? 0,
+          level: r.auth_level ?? report.auth?.level ?? '-',
+          warn: (Array.isArray(r.risk_signals) ? r.risk_signals.join(' · ') : r.risk_signals) || report.auth?.warn || '',
+          brand: r.identified_item || report.auth?.brand || '',
+          checks: (r.checks || report.auth?.checks || []).map(x => x.point ? {k:x.point, v:x.detail, st:x.status} : x)
+        };
+        if(r.market){
+          report.market = r.market;
+          if(c.mode === 'sell'){
+            report.price.mkLo = r.market.market_low;
+            report.price.mkMo = r.market.market_mode;
+            report.price.mkHi = r.market.market_high;
+            report.price.n = r.market.sample_size;
+          }
+        }
       }
       return report;
     }catch(e){ throw e; }

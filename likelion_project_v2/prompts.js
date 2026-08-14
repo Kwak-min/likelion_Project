@@ -52,6 +52,9 @@ const COMMON_RULES = `
 [말투와 규칙]
 - 한국어 존댓말. 담백하고 짧게. 감탄사·이모지·과장 금지.
 - 한 번에 질문은 하나만. 답을 받은 뒤 다음으로 넘어간다.
+- 매 턴 현재 문장만 보지 말고 대화 전체와 누적 슬롯을 함께 판단한다.
+- 이미 확인된 슬롯은 사용자가 명시적으로 정정하지 않는 한 지우거나 바꾸지 않는다.
+- 새 답변이 앞선 품목·증상과 모순되면 다음 슬롯으로 넘어가지 말고 모순을 한 번 확인한다.
 - 고객이 모른다고 하면 넘어가고, 확인 못 한 항목으로 기록한다.
 - 금액은 항상 구간으로 말한다. 단일 금액을 확정하지 않는다.
 - 최종 금액은 픽업 후 감정사가 실물로 정한다는 점을 마지막에 안내한다.
@@ -208,7 +211,7 @@ export const REPAIR_SEARCH = (slots) => `
 
 /* ---------- 5. 사진 기반 1차 감정 (vision) ---------- */
 export const VISION_AUTH = (slots) => `
-첨부된 사진으로 1차 감정을 수행하세요. 제품: ${slots.item}
+첨부된 사진으로 품목 식별과 1차 감정을 수행하세요. 고객 입력 제품: ${slots.item || '미입력'}
 
 [보는 순서]
 1. 각인·코드: 서체 두께, 글자 간격, 각인 깊이, 위치가 브랜드 규격과 맞는지.
@@ -218,6 +221,9 @@ export const VISION_AUTH = (slots) => `
 5. 전체 비율: 브랜드 공식 제품 이미지와 실루엣·크기 비율 비교.
 
 [규칙]
+- 사진에서 보이는 브랜드·모델·품목을 identified_item 에 가능한 범위로 구체적으로 적는다.
+- authenticity_likelihood 는 사진에서 확인된 근거만 반영한 0~100의 가능성이다.
+  정품 확률을 확정 판정처럼 말하지 말고, 추가 사진이 필요하면 70을 넘기지 않는다.
 - 사진 화질이 낮거나 각도가 부족하면 판단하지 말고 need_more_photos 에
   어떤 사진이 더 필요한지 적는다. 추측으로 채우지 않는다.
 - 진품/가품을 확정하지 않는다. 위험 신호(risk_signals)와 확인된 항목만 보고한다.
@@ -226,6 +232,20 @@ export const VISION_AUTH = (slots) => `
 ${AUTH_KB}
 
 [출력] 지정된 JSON 스키마로만 답한다.
+`;
+
+export const buildPhotoMarketSearch = (vision) => `
+사진 분석으로 식별된 제품의 현재 한국 중고 시세를 조사하세요.
+
+식별 제품: ${vision.identified_item}
+사진 컨디션: ${vision.condition_grade} — ${vision.condition_notes}
+
+[검색 지시]
+- 최근 3개월의 실제 판매 완료가와 거래가를 우선하고, 단순 호가는 구분한다.
+- 서로 다른 출처의 비교 매물을 최대 5건 수집한다.
+- 모델, 연식, 구성품, 컨디션, 정품 확인 자료가 가격에 미치는 영향을 설명한다.
+- 가격 형성 요인을 drivers 배열로 요약한다.
+- 찾지 못한 값은 지어내지 말고 비교 매물을 빈 배열로 둔다.
 `;
 
 /* ---------- JSON 스키마 (Structured Outputs) ---------- */
@@ -270,11 +290,13 @@ export const REPAIR_REPORT_SCHEMA = {
   }
 };
 
-export const VISION_SCHEMA = {
+export const PHOTO_ANALYSIS_SCHEMA = {
   type:'object', additionalProperties:false,
-  required:['auth_score','auth_level','checks','risk_signals','need_more_photos','condition_grade','condition_notes'],
+  required:['identified_item','authenticity_likelihood','auth_level','checks','risk_signals',
+            'need_more_photos','condition_grade','condition_notes'],
   properties:{
-    auth_score:{type:'integer'},
+    identified_item:{type:'string'},
+    authenticity_likelihood:{type:'integer', minimum:0, maximum:100},
     auth_level:{type:'string', enum:['통과','주의','보류']},
     checks:{type:'array', items:{type:'object', additionalProperties:false,
       required:['point','detail','status'],
@@ -286,3 +308,20 @@ export const VISION_SCHEMA = {
     condition_notes:{type:'string'}
   }
 };
+
+export const PHOTO_MARKET_SCHEMA = {
+  type:'object', additionalProperties:false,
+  required:['summary','market_low','market_mode','market_high','sample_size','drivers','comps'],
+  properties:{
+    summary:{type:'string'},
+    market_low:{type:'integer'}, market_mode:{type:'integer'}, market_high:{type:'integer'},
+    sample_size:{type:'integer'},
+    drivers:{type:'array', items:{type:'string'}},
+    comps:{type:'array', items:{type:'object', additionalProperties:false,
+      required:['title','price','source','date','url'],
+      properties:{title:{type:'string'}, price:{type:'integer'}, source:{type:'string'},
+                  date:{type:'string'}, url:{type:'string'}}}}
+  }
+};
+
+export const VISION_SCHEMA = PHOTO_ANALYSIS_SCHEMA;
