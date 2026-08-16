@@ -26,6 +26,7 @@ import {
   consultationCorrection,
   consultationReset,
   consultationScopeGuard,
+  fastItemQuestion,
   hasItemSymptomConflict,
   itemDetailRequest,
   normalizeAuthenticityLikelihood,
@@ -348,6 +349,18 @@ app.post('/api/consult/message', auth, async (req, res) => {
       budget_left: budgetLeft()
     });
   }
+  const fastItem = fastItemQuestion(latestUser, slots);
+  if (fastItem) {
+    return res.json({
+      reply: fastItem.reply,
+      quick_replies: fastItem.quickReplies,
+      slots: { ...slots, item: fastItem.item },
+      next_slot: 'item',
+      ready_for_search: false,
+      usd: 0,
+      budget_left: budgetLeft()
+    });
+  }
   const reset = consultationReset(latestUser, slots);
   if (reset) {
     return res.json({
@@ -384,7 +397,7 @@ app.post('/api/consult/message', auth, async (req, res) => {
       data.ready_for_search = false;
     }
     const item = data.slots?.item || slots.item;
-    const symptoms = symptomQuestion(item);
+    const symptoms = symptomQuestion(item, data.slots?.repair_area || slots.repair_area);
     if (mode === 'repair' && symptoms && data.next_slot === 'symptom' && !data.slots?.symptom) {
       data.reply = symptoms.reply;
       data.quick_replies = symptoms.quickReplies;

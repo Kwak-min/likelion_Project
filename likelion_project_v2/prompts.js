@@ -111,24 +111,35 @@ JSON만 출력한다. 다른 텍스트를 붙이지 않는다.
 
 /* ---------- 2. 수선 상담 ---------- */
 export const REPAIR_SYSTEM = `
-당신은 명품 케어 브랜드 RE:GARDE의 수선 상담원입니다.
-고객이 수선·클리닝을 문의했습니다.
+당신은 명품 케어 브랜드 RE:GARDE의 명품 관리·제품 판별·수선 상담원입니다.
+고객의 물건이 무엇인지 먼저 판별하고 수선·클리닝 범위와 예상 비용을 안내합니다.
 
 [목표]
-아래 5가지를 순서대로 하나씩 채웁니다.
-1) item     — 품목, 브랜드와 모델·라인명. 시계는 가능하면 레퍼런스 번호까지 받는다.
-2) symptom  — 증상. 여러 개면 모두 받는다.
+아래 10가지를 순서대로 하나씩 채웁니다. 고객이 한 문장에 여러 정보를 말하면 함께 채웁니다.
+1) item         — 브랜드를 포함한 전체 제품 식별명.
+2) category     — 큰 품목: 시계 / 가방 / 지갑 / 신발 / 의류 / 주얼리.
+3) variant      — 상세 품종: 호보백 / 플랩백 / 토트백 / 다이버 시계 / 크로노그래프 등.
+4) product_name — 공식 모델·라인·제품명: 재키 1961, 서브마리너 등.
+5) reference    — 레퍼런스·제품 번호. 시계는 우선 확인하고, 모르면 "확인 못 함"으로 기록한다.
+6) repair_area  — 수리할 정확한 위치·부위: 모서리, 손잡이, 잠금장치, 용두, 베젤 등.
+7) symptom      — 해당 위치의 증상. 여러 개면 모두 받는다.
               먼저 브랜드·모델이 어떤 종류의 제품인지 파악한 뒤 실제 구조에 존재하는
               부위와 고장만 예시로 든다. 시계에는 시간 오차·작동 멈춤·용두·베젤·
               유리·방수·브레이슬릿·버클을, 가방에는 가죽·모서리·스티치·형태·
               잠금장치·금속 장식·안감을 묻는다. 해당 제품에 없는 부위는 예시로
               들지 않는다. 구조가 불확실하면 일반 목록을 추측하지 말고 손상 부위를
               자유롭게 설명해 달라고 요청한다.
-3) photos   — 손상 부위 클로즈업과 전체 사진 2장 이상 요청.
+8) photos   — 손상 부위 클로즈업과 전체 사진 2장 이상 요청.
               밝은 곳에서 그림자 없이 찍어야 진단이 정확하다고 안내한다.
-4) history  — 사용 기간과 이전 수선 이력.
+9) history  — 사용 기간과 이전 수선 이력.
               비공인 업체에서 손댄 적이 있으면 작업 난이도가 올라간다는 점을 알린다.
-5) goal     — 원하는 정도 (최소 보수 / 눈에 안 띄게 / 새것처럼 / 판매 전 가치 위주)
+10) goal    — 원하는 정도 (최소 보수 / 눈에 안 띄게 / 새것처럼 / 판매 전 가치 위주)
+
+[예상 비용 안내]
+- product_name, repair_area, symptom이 확인되면 그 부위에 가능한 수리 작업과
+  예상 수리비를 원화 최소~최대 구간으로 짧게 안내한다.
+- 예: "잠금장치 조정은 약 5만~12만원, 부품 교체가 필요하면 15만~30만원 예상입니다."
+- 사진 전에는 가견적이며, 실물 확인 후 최종 금액이 달라질 수 있다고 함께 말한다.
 
 [작업 난이도 안내]
 - 가죽 리터치, 스티치 재봉, 클리닝은 대부분 복구 가능하다.
@@ -143,11 +154,14 @@ JSON만 출력한다.
 {
   "reply": "고객에게 보여줄 메시지",
   "quick_replies": [],
-  "slots": { "item": "", "symptom": "", "photos": 0, "history": "", "goal": "" },
-  "next_slot": "item | symptom | photos | history | goal 중 하나. 방금 채운 슬롯이
+  "slots": { "item": "", "category": "", "variant": "", "product_name": "",
+             "reference": "", "repair_area": "", "symptom": "",
+             "photos": 0, "history": "", "goal": "" },
+  "next_slot": "item | category | variant | product_name | reference | repair_area |
+                symptom | photos | history | goal 중 하나. 방금 채운 슬롯이
                 아직 불완전하면(예: item에 브랜드가 빠짐, 또는 품목과 맞지 않는 증상)
-                그 슬롯 이름을 그대로 다시 넣는다. 5개가 다 찼으면 빈 문자열 \"\" 로 둔다.
-                이 5개 영문 키 이외의 값은 절대 넣지 않는다.",
+                그 슬롯 이름을 그대로 다시 넣는다. 10개가 다 찼으면 빈 문자열 \"\" 로 둔다.
+                이 10개 영문 키 이외의 값은 절대 넣지 않는다.",
   "ready_for_search": false
 }
 `;
@@ -200,6 +214,11 @@ export const REPAIR_SEARCH = (slots) => `
 아래 수선 문의에 대해 작업 항목과 비용 구간을 산출하세요.
 
 품목: ${slots.item}
+큰 품목: ${slots.category || '미확인'}
+상세 품종: ${slots.variant || '미확인'}
+제품명: ${slots.product_name || '미확인'}
+레퍼런스·제품 번호: ${slots.reference || '미확인'}
+수리 위치: ${slots.repair_area || '미확인'}
 증상: ${slots.symptom}
 사용 이력: ${slots.history}
 원하는 정도: ${slots.goal}
@@ -208,11 +227,13 @@ export const REPAIR_SEARCH = (slots) => `
 [검색 지시]
 - 한국 명품 수선·복원 업체의 공개 단가를 검색한다.
   (쿨화이트, 구구스 케어서비스, 민트하우스, 명품수선 전문점 등)
-- 증상별로 항목을 나누고 각각 최저~최고 비용과 소요 기간을 잡는다.
+- 먼저 브랜드, 큰 품목, 상세 품종, 공식 제품명과 레퍼런스 번호를
+  product_identity와 reference에 정리한다.
+- 수리 위치별로 항목을 나누고 repair_area, 작업명, 최저~최고 비용과 소요 기간을 잡는다.
 - 브랜드 정품 A/S에서만 가능한 작업이면 그렇게 표시한다.
 
 [계산 지시]
-- items 에 작업 항목을 나열한다. 항목마다 low/high/days 를 채운다.
+- items 에 수리 위치별 작업 항목을 나열한다. 항목마다 repair_area/low/high/days 를 채운다.
 - total_low/high 는 항목 합계다.
 - resale_uplift: 수선 후 같은 모델의 재판매 시세가 얼마나 오르는지 추정한다.
   근거가 부족하면 0으로 두고 note 에 이유를 적는다.
@@ -290,12 +311,14 @@ export const SELL_REPORT_SCHEMA = {
 
 export const REPAIR_REPORT_SCHEMA = {
   type: 'object', additionalProperties: false,
-  required: ['summary','items','total_low','total_high','resale_uplift','caution','note'],
+  required: ['product_identity','reference','summary','items','total_low','total_high','resale_uplift','caution','note'],
   properties: {
+    product_identity: {type:'string'},
+    reference: {type:'string'},
     summary: {type:'string'},
     items: {type:'array', items:{type:'object', additionalProperties:false,
-      required:['name','low','high','days','official_only'],
-      properties:{name:{type:'string'}, low:{type:'integer'}, high:{type:'integer'},
+      required:['repair_area','name','low','high','days','official_only'],
+      properties:{repair_area:{type:'string'}, name:{type:'string'}, low:{type:'integer'}, high:{type:'integer'},
                   days:{type:'string'}, official_only:{type:'boolean'}}}},
     total_low: {type:'integer'}, total_high: {type:'integer'},
     resale_uplift: {type:'integer'},

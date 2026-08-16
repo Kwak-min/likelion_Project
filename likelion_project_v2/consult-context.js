@@ -14,6 +14,18 @@ const BRANDS = [
   ['에르메스', /에르메스|herm[eè]s/i],
   ['버버리', /버버리|burberry/i]
 ];
+const FAST_ITEM_CATALOG = [
+  { brand: '롤렉스', pattern: /롤렉스|rolex/i, lines: ['서브마리너', '데이토나', '데이트저스트', 'GMT-마스터 II'], watch: true },
+  { brand: '구찌', pattern: /구찌|gucci/i, lines: ['GG 마몽', '오피디아', '재키 1961', '홀스빗'] },
+  { brand: '샤넬', pattern: /샤넬|chanel/i, lines: ['클래식 플랩', '보이백', '코코핸들', '샤넬 19'] },
+  { brand: '루이비통', pattern: /루이비통|louis\s*vuitton|\blv\b/i, lines: ['네버풀', '스피디', '알마', '카푸신'] },
+  { brand: '에르메스', pattern: /에르메스|herm[eè]s/i, lines: ['버킨', '켈리', '가든 파티', '에블린'] },
+  { brand: '오메가', pattern: /오메가|omega/i, lines: ['스피드마스터', '씨마스터', '컨스텔레이션', '드 빌'], watch: true },
+  { brand: '까르띠에', pattern: /까르띠에|cartier/i, lines: ['탱크', '산토스', '발롱 블루', '팬더'] },
+  { brand: '프라다', pattern: /프라다|prada/i, lines: ['리나일론', '갤러리아', '클레오', '카이에'] },
+  { brand: '디올', pattern: /디올|dior/i, lines: ['레이디 디올', '새들', '북 토트', '바비'] },
+  { brand: '버버리', pattern: /버버리|burberry/i, lines: ['롤라', '프란시스', '포켓백', 'TB백'] }
+];
 const DETAIL_REQUESTS = [
   {
     broad: /(?:롤렉스|rolex).*(?:시계|워치)?$|^(?:롤렉스|rolex)$/i,
@@ -82,6 +94,26 @@ export function consultationScopeGuard(history, slots = {}) {
     .trim();
   return {
     reply: `상담과 관련된 내용만 안내할 수 있습니다. ${request || '현재 상담 중인 제품 정보를 알려주세요.'}`,
+    nextSlot: ['item', 'category', 'variant', 'product_name', 'reference',
+      'repair_area', 'symptom', 'photos', 'history', 'goal']
+      .find(slot => slots[slot] === '' || slots[slot] === null || slots[slot] === undefined) || ''
+  };
+}
+
+export function fastItemQuestion(message, slots = {}) {
+  if (slots.item) return null;
+  const value = String(message || '').trim();
+  const entry = FAST_ITEM_CATALOG.find(candidate => candidate.pattern.test(value));
+  if (!entry || entry.lines.some(line => value.toLowerCase().includes(line.toLowerCase()))) return null;
+  const kind = /지갑|wallet/i.test(value) ? '지갑' :
+    /가방|백|bag/i.test(value) ? '가방' :
+    /시계|워치|watch/i.test(value) || entry.watch ? '시계' : '제품';
+  const item = kind === '제품' ? entry.brand : `${entry.brand} ${kind}`;
+  const reference = entry.watch ? ' 가능하면 레퍼런스 번호도 함께 알려주세요.' : ' 모델을 모르시면 공개 상품 링크를 보내주세요.';
+  return {
+    item,
+    reply: `${item}의 모델·라인명을 알려주세요. 예: ${entry.lines.join(', ')}.${reference}`,
+    quickReplies: [...entry.lines, '잘 모르겠어요'],
     nextSlot: 'item'
   };
 }
@@ -98,8 +130,15 @@ export function itemDetailRequest(item) {
   } : null;
 }
 
-export function symptomQuestion(item) {
+export function symptomQuestion(item, repairArea = '') {
   const value = String(item || '').trim();
+  const area = String(repairArea || '').trim();
+  if (/손잡이|핸들/i.test(area)) {
+    return {
+      reply: `${value} 손잡이의 어떤 증상이 있나요? 갈라짐, 끊어짐, 오염·변색, 형태 변형, 연결부 풀림처럼 해당되는 증상을 모두 알려주세요.`,
+      quickReplies: ['손잡이 갈라짐', '손잡이 끊어짐', '손잡이 오염·변색', '손잡이 형태 변형', '손잡이 연결부 풀림']
+    };
+  }
   if (WATCH.test(value)) {
     return {
       reply: `${value}의 어떤 증상이 있나요? 시간이 느리거나 빨라짐, 작동 멈춤, 용두·베젤 이상, 유리 손상, 방수 문제, 브레이슬릿·버클 이상처럼 해당되는 증상을 모두 알려주세요.`,

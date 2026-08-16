@@ -2013,10 +2013,13 @@ const Consult = {
 
   /* 슬롯 채우는 순서 — AI가 돌려주는 next_slot 값과 그대로 맞춰야 합니다 (prompts.js 참고) */
   SELL_ORDER: ['item','purchase','condition','evidence','photos'],
-  REPAIR_ORDER: ['item','symptom','photos','history','goal'],
+  REPAIR_ORDER: ['item','category','variant','product_name','reference','repair_area','symptom','photos','history','goal'],
   SELL_SUB: {item:'무엇을 파실지 알려주세요', purchase:'구입 정보를 알려주세요', condition:'상태를 알려주세요',
     evidence:'정품 확인 정보', photos:'사진을 올려주세요'},
-  REPAIR_SUB: {item:'어디가 상했는지 알려주세요', symptom:'증상을 알려주세요', photos:'사진을 올려주세요',
+  REPAIR_SUB: {item:'브랜드와 제품을 알려주세요', category:'큰 품목을 확인합니다',
+    variant:'상세 품종을 확인합니다', product_name:'정확한 제품명을 확인합니다',
+    reference:'레퍼런스·제품 번호를 확인합니다', repair_area:'수리할 위치를 알려주세요',
+    symptom:'해당 위치의 증상을 알려주세요', photos:'사진을 올려주세요',
     history:'사용 이력', goal:'원하시는 정도'},
 
   /* API가 켜져 있으면: 캔버스 문구를 쓰지 않고 AI가 돌려준 next_slot/ready_for_search 로만
