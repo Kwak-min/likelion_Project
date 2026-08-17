@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>RE:GARDE — 중고 명품 거래 · 수선</title>
 <meta name="description" content="AI 1차 감정과 전문가 2차 감정으로 값을 정하는 중고 명품 거래·수선 플랫폼">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23111110'/%3E%3Cpath d='M9 12h14M9 16h14M9 20h14' stroke='%23f6f5f2' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
 <style>
 /* ============================================================
    RE:GARDE — design tokens
@@ -92,6 +93,7 @@ hr.hair{border:none;border-top:1px solid var(--hair);margin:14px 0}
 .tabbar{display:flex;justify-content:space-around;align-items:flex-end;padding:9px 6px calc(12px + env(safe-area-inset-bottom));
   border-top:1px solid var(--hair);background:var(--wht);z-index:45;
   position:fixed;left:0;right:0;bottom:0}
+#tabbar[hidden]{display:none}
 .tabbar button{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;padding:2px 0}
 .tabbar svg{width:19px;height:19px;stroke:#b7b6ae;fill:none;stroke-width:1.4}
 .tabbar em{font-size:8px;font-style:normal;letter-spacing:.6px;color:#b7b6ae}
@@ -230,6 +232,8 @@ hr.hair{border:none;border-top:1px solid var(--hair);margin:14px 0}
 body.has-tabbar .stick{bottom:var(--tabh)}
 .stick .heart{width:52px;border:1px solid var(--ink);display:grid;place-items:center;flex:none}
 .stick .heart svg{width:18px;height:18px;stroke:var(--ink);fill:none;stroke-width:1.5}
+.stick .heart.on{background:var(--ink)}
+.stick .heart.on svg{stroke:#fff;fill:#fff}
 
 /* ---------- 채팅 (유일하게 앱형 고정 높이 — 입력창을 항상 하단에 고정) ---------- */
 #s-chat.screen.on{height:100dvh;max-height:100dvh;overflow:hidden}
@@ -837,7 +841,7 @@ body.has-tabbar .stick{bottom:var(--tabh)}
   <div class="backbar"><button class="bk" onclick="back()">‹ 뒤로</button></div>
   <div class="scroll"><div class="pdp" id="pdpBody"></div></div>
   <div class="stick">
-    <button class="heart" aria-label="찜"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.5-9-9a4.5 4.5 0 0 1 9-2 4.5 4.5 0 0 1 9 2c-2 4.5-9 9-9 9z"/></svg></button>
+    <button class="heart" aria-label="찜" onclick="Shop.toggleWish(this)"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.5-9-9a4.5 4.5 0 0 1 9-2 4.5 4.5 0 0 1 9 2c-2 4.5-9 9-9 9z"/></svg></button>
     <button class="btn" id="pdpBuy">구매하기</button>
   </div>
 </section>
@@ -1675,6 +1679,19 @@ const Shop = {
     S.picked.clear(); S.selecting = false;
     $('#selToggle').classList.remove('on'); $('#selToggle span:last-child').textContent = '여러 개 선택';
     Shop.renderShop();
+  },
+  /* 상세 화면 찜 — localStorage에 제품 id를 보관하고 하트 상태를 토글합니다 */
+  toggleWish(btn){
+    const id = S.cart?.id;
+    if(!id){ toast('찜할 제품을 먼저 선택해 주세요'); return; }
+    const on = btn.classList.toggle('on');
+    let wish = [];
+    try{ wish = JSON.parse(localStorage.getItem('regarde.wish') || '[]'); }catch{}
+    if(on){ if(!wish.includes(id)) wish.push(id); }
+    else { wish = wish.filter(x => x !== id); }
+    try{ localStorage.setItem('regarde.wish', JSON.stringify(wish)); }catch{}
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    toast(on ? '찜 목록에 추가했습니다' : '찜을 해제했습니다');
   },
 
   /* ---------- 상세 ---------- */
@@ -2800,11 +2817,15 @@ const Admin = {
   async load(){
     if(API.on() && S.token){
       try{ S.queue = ((await API.queue()).orders || []).map(Orders.fromServer); }
-      catch(e){ S.queue = null; toast(e.message); }
+      catch(e){ S.queue = /권한/.test(e.message || '') ? 'denied' : null; toast(e.message); }
     } else S.queue = null;
     Admin.render();
   },
   render(){
+    if(S.queue === 'denied'){
+      $('#adminBody').innerHTML = `<div class="empty"><h3>감정사 전용 콘솔</h3><p>감정사·관리자 계정으로 로그인하면<br>2차 감정 대기열이 표시됩니다.</p></div>`;
+      return;
+    }
     const queue = S.queue || S.orders.filter(o => o.type !== 'buy');
     $('#adminBody').innerHTML = `
       <div class="stat">
