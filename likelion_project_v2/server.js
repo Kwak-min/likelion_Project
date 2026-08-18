@@ -26,6 +26,7 @@ import {
   consultationCorrection,
   consultationReset,
   consultationScopeGuard,
+  fastItemQuestion,
   hasItemSymptomConflict,
   itemDetailRequest,
   normalizeAuthenticityLikelihood,
@@ -312,8 +313,11 @@ app.get('/api/me', auth, (req, res) => {
    ============================================================ */
 app.post('/api/consult/message', auth, async (req, res) => {
   if (!guard(res)) return;
-  const { mode = 'sell', history = [], slots = {} } = req.body || {};
+  const { mode = 'sell', history = [], slots = {}, photos } = req.body || {};
   if (!VALID_MODES.has(mode)) return res.status(400).json({ error: '상담 종류를 확인해 주세요' });
+  if (photos !== undefined && (!Number.isInteger(photos) || photos < 0 || photos > 6)) {
+    return res.status(400).json({ error: '사진 수를 확인해 주세요' });
+  }
   if (!Array.isArray(history) || history.length > 14 ||
       history.some(m => !m || !['user', 'assistant'].includes(m.role) ||
         typeof m.content !== 'string' || m.content.length > 4_000)) {
@@ -348,6 +352,18 @@ app.post('/api/consult/message', auth, async (req, res) => {
       budget_left: budgetLeft()
     });
   }
+  const fastItem = fastItemQuestion(latestUser, slots);
+  if (fastItem) {
+    return res.json({
+      reply: fastItem.reply,
+      quick_replies: fastItem.quickReplies,
+      slots: { ...slots, item: fastItem.item },
+      next_slot: 'item',
+      ready_for_search: false,
+      usd: 0,
+      budget_left: budgetLeft()
+    });
+  }
   const reset = consultationReset(latestUser, slots);
   if (reset) {
     return res.json({
@@ -376,6 +392,9 @@ app.post('/api/consult/message', auth, async (req, res) => {
     const data = parseJSON(outputText(r), {
       reply: '다시 한 번 말씀해 주시겠어요?', quick_replies: [], slots, ready_for_search: false
     });
+    /* 사진 슬롯은 프런트가 보낸 실제 첨부 수(photos)로만 확정합니다.
+       고객이 "사진 2장"처럼 말로만 언급해도 AI 가 photos 를 채우지 못하도록 강제 보정합니다. */
+    if (photos !== undefined) data.slots = { ...(data.slots || {}), photos };
     const detailRequest = itemDetailRequest(data.slots?.item || slots.item);
     if (detailRequest) {
       data.reply = detailRequest.reply;
@@ -384,7 +403,7 @@ app.post('/api/consult/message', auth, async (req, res) => {
       data.ready_for_search = false;
     }
     const item = data.slots?.item || slots.item;
-    const symptoms = symptomQuestion(item);
+    const symptoms = symptomQuestion(item, data.slots?.repair_area || slots.repair_area);
     if (mode === 'repair' && symptoms && data.next_slot === 'symptom' && !data.slots?.symptom) {
       data.reply = symptoms.reply;
       data.quick_replies = symptoms.quickReplies;

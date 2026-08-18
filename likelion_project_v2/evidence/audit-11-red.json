@@ -1,0 +1,17 @@
+{
+  "summary": "10개 시나리오 중 상담 진행을 막을 수 있는 next_slot 불일치 1건과 자동 violation 오탐 또는 응답-슬롯 불일치 1건이 확인되었습니다. 나머지 시나리오는 식별 정보, 증상 구조, 모드, 예상 수리비 안내가 대체로 적합합니다.",
+  "findings": [
+    {
+      "scenario_id": "out-of-scope",
+      "severity": "high",
+      "issue": "슬롯에 이미 item=\"구찌 지갑\", category=\"지갑\"이 저장되어 있고 응답도 모델·라인명을 요청하지만, next_slot이 \"item\"으로 유지되어 동일한 품목을 다시 묻게 될 수 있습니다. 이전 슬롯 고착으로 상담이 진행되지 않을 가능성이 있습니다.",
+      "expected_fix": "next_slot을 product_name 또는 모델·라인명 확인용 슬롯으로 변경하고, item 슬롯을 재요청하지 않도록 수정합니다."
+    },
+    {
+      "scenario_id": "bag-structure",
+      "severity": "low",
+      "issue": "자동 violation은 \"bag repair area missing\"으로 기록되었지만 slots에는 repair_area=\"모서리 가죽\", symptom=\"모서리 가죽 벗겨짐\"이 이미 존재합니다. 따라서 해당 violation은 슬롯 기준으로는 오탐입니다. 다만 응답에는 기존 수리 부위·증상이 반영되지 않고 레퍼런스만 재요청됩니다.",
+      "expected_fix": "repair_area와 symptom이 유효하게 저장된 경우 해당 violation을 발생시키지 말고, 응답에서 기존 손상 부위를 유지한 채 레퍼런스만 요청합니다. 실제로 수리 부위가 불확실한 경우에만 수리 부위를 재질문합니다."
+    }
+  ]
+}

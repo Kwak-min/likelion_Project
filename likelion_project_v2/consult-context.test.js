@@ -6,6 +6,7 @@ import {
   consultationCorrection,
   consultationReset,
   consultationScopeGuard,
+  fastItemQuestion,
   hasItemSymptomConflict,
   itemDetailRequest,
   normalizeAuthenticityLikelihood,
@@ -86,6 +87,13 @@ test('symptom questions only mention structures the identified item has', () => 
   assert.doesNotMatch(symptomQuestion('구찌 재키 1961').reply, /용두|베젤|브레이슬릿/);
 });
 
+test('repair-area symptom question stays specific to a bag handle', () => {
+  assert.deepEqual(symptomQuestion('루이비통 네버풀 MM', '손잡이'), {
+    reply: '루이비통 네버풀 MM 손잡이의 어떤 증상이 있나요? 갈라짐, 끊어짐, 오염·변색, 형태 변형, 연결부 풀림처럼 해당되는 증상을 모두 알려주세요.',
+    quickReplies: ['손잡이 갈라짐', '손잡이 끊어짐', '손잡이 오염·변색', '손잡이 형태 변형', '손잡이 연결부 풀림']
+  });
+});
+
 test('unrelated questions are blocked without answering them', () => {
   const history = [
     { role: 'assistant', content: '구찌 지갑의 모델·라인명을 알려주세요. 모델을 모르시면 구매처의 공개 상품 링크를 보내주세요.' },
@@ -93,12 +101,65 @@ test('unrelated questions are blocked without answering them', () => {
   ];
   assert.deepEqual(consultationScopeGuard(history, { item: '구찌 지갑' }), {
     reply: '상담과 관련된 내용만 안내할 수 있습니다. 구찌 지갑의 모델·라인명을 알려주세요. 모델을 모르시면 구매처의 공개 상품 링크를 보내주세요.',
-    nextSlot: 'item'
+    nextSlot: 'category'
   });
   assert.notEqual(consultationScopeGuard([
     history[0],
     { role: 'user', content: 'GG 마몽이에요' }
   ], { item: '구찌 지갑' }), history);
+});
+
+test('scope guard resumes at the first missing repair identity slot', () => {
+  const history = [
+    { role: 'assistant', content: '구찌 지갑의 모델·라인명을 알려주세요.' },
+    { role: 'user', content: '1+2는?' }
+  ];
+  assert.equal(
+    consultationScopeGuard(history, { item: '구찌 지갑', category: '지갑' }).nextSlot,
+    'variant'
+  );
+  assert.equal(
+    consultationScopeGuard(history, {
+      item: '구찌 지갑',
+      category: '지갑',
+      variant: '반지갑',
+      product_name: ''
+    }).nextSlot,
+    'product_name'
+  );
+});
+
+test('generic item messages get deterministic questions without an AI call', () => {
+  const rolex = fastItemQuestion('롤렉스', {});
+  assert.equal(rolex.item, '롤렉스 시계');
+  assert.match(rolex.reply, /서브마리너.*데이토나.*레퍼런스 번호/);
+  assert.equal(rolex.nextSlot, 'item');
+
+  const gucci = fastItemQuestion('구찌 지갑', {});
+  assert.equal(gucci.item, '구찌 지갑');
+  assert.match(gucci.reply, /GG 마몽.*오피디아.*공개 상품 링크/);
+  assert.equal(gucci.nextSlot, 'item');
+  assert.equal(fastItemQuestion('구찌 재키 1961 미디엄 호보백', {}), null);
+});
+
+test('fast item questions cover brands beyond Rolex and Gucci', () => {
+  const cases = [
+    ['샤넬 가방', '클래식 플랩', '보이백'],
+    ['루이비통', '네버풀', '카푸신'],
+    ['에르메스 가방', '버킨', '켈리'],
+    ['오메가 시계', '스피드마스터', '씨마스터'],
+    ['까르띠에', '탱크', '산토스'],
+    ['프라다 가방', '리나일론', '갤러리아'],
+    ['디올', '레이디 디올', '새들'],
+    ['버버리 가방', '롤라', '프란시스']
+  ];
+  for (const [input, firstLine, secondLine] of cases) {
+    const question = fastItemQuestion(input, {});
+    assert.ok(question);
+    assert.match(question.reply, new RegExp(firstLine));
+    assert.match(question.reply, new RegExp(secondLine));
+    assert.equal(question.nextSlot, 'item');
+  }
 });
 
 test('authenticity likelihood is bounded and confidence-aware', () => {

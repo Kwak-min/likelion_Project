@@ -11,5 +11,8 @@ test('photo analysis UI renders likelihood, price drivers, and extra photo needs
 });
 
 test('repair text at photo step is not silently converted into zero photos', () => {
-  assert.match(html, /if\(c\.step === 2 && !text\)/);
+  // 사진 단계는 REPAIR_ORDER 에서 photos 위치(index 7)와 매칭되고,
+  // 실제 첨부 사진이 없으면 텍스트만으로는 진행할 수 없습니다.
+  assert.match(html, /Consult\.REPAIR_ORDER\[c\.step\] === 'photos'/);
+  assert.match(html, /!c\.photos\.length && text !== '사진 없이 진행할게요'/);
 });

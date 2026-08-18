@@ -1,0 +1,252 @@
+{
+  "generated_at": "2026-08-16T09:30:19.079Z",
+  "base_url": "http://127.0.0.1:8787",
+  "total": 10,
+  "violation_count": 0,
+  "results": [
+    {
+      "id": "repair-full-identity",
+      "status": 200,
+      "body": {
+        "reply": "구찌 재키 1961 미디엄 호보백(제품 번호 636706)으로 확인했습니다. 잠금장치 헐거움은 조정 약 5만~12만원, 부품 교체가 필요하면 약 15만~30만원 예상됩니다. 사진 전 가견적이며 실물 확인 후 달라질 수 있습니다. 손상 부위 클로즈업과 전체 사진을 밝고 그림자 없이 2장 이상 보내주시겠어요?",
+        "quick_replies": [],
+        "slots": {
+          "item": "구찌 재키 1961 미디엄 호보백",
+          "category": "가방",
+          "variant": "호보백",
+          "product_name": "재키 1961",
+          "reference": "636706",
+          "repair_area": "잠금장치",
+          "symptom": "잠금장치가 헐거움",
+          "photos": 0,
+          "history": "",
+          "goal": ""
+        },
+        "next_slot": "photos",
+        "ready_for_search": false,
+        "usd": 0.0007222,
+        "budget_left": 99.954796
+      },
+      "violations": [],
+      "latency_ms": 4164
+    },
+    {
+      "id": "watch-structure",
+      "status": 200,
+      "body": {
+        "reply": "롤렉스 서브마리너 126610LN의 용두 이탈로 확인했습니다. 용두와 튜브 점검·조정은 약 20만~50만원, 부품 교체나 공식 A/S가 필요하면 약 50만~100만원 이상 예상됩니다. 사진 전 가견적이며 실물 확인 후 달라질 수 있습니다. 밝은 곳에서 그림자 없이 손상 부위 클로즈업과 시계 전체 사진을 2장 이상 보내주시겠어요?",
+        "quick_replies": [],
+        "slots": {
+          "item": "롤렉스 서브마리너 126610LN",
+          "category": "시계",
+          "variant": "다이버 시계",
+          "product_name": "서브마리너",
+          "reference": "126610LN",
+          "repair_area": "용두",
+          "symptom": "용두가 빠짐",
+          "photos": 0,
+          "history": "",
+          "goal": ""
+        },
+        "next_slot": "photos",
+        "ready_for_search": false,
+        "usd": 0.0007991999999999999,
+        "budget_left": 99.953997
+      },
+      "violations": [],
+      "latency_ms": 4272
+    },
+    {
+      "id": "bag-structure",
+      "status": 200,
+      "body": {
+        "reply": "모서리 가죽 벗겨짐으로 확인했습니다. 모서리 클리닝·가죽 보강과 색상 리터치는 약 8만~20만원, 손상이 깊거나 여러 곳이면 약 20만~35만원 예상입니다. 사진 전 가견적이며 실물 확인 후 달라질 수 있습니다. 손상 부위 클로즈업과 가방 전체 사진을 밝은 곳에서 그림자 없이 2장 이상 보내주세요.",
+        "quick_replies": [],
+        "slots": {
+          "item": "샤넬 클래식 플랩백",
+          "category": "가방",
+          "variant": "플랩백",
+          "product_name": "클래식 플랩백",
+          "reference": "확인 못 함",
+          "repair_area": "모서리 가죽",
+          "symptom": "가죽이 벗겨짐",
+          "photos": 0,
+          "history": "",
+          "goal": ""
+        },
+        "next_slot": "photos",
+        "ready_for_search": false,
+        "usd": 0.0007194,
+        "budget_left": 99.953278
+      },
+      "violations": [],
+      "latency_ms": 3171
+    },
+    {
+      "id": "brand-correction",
+      "status": 200,
+      "body": {
+        "reply": "구찌의 어떤 제품인가요? 가방, 지갑, 신발처럼 품목과 모델명이나 라인명을 알려주세요.",
+        "quick_replies": [],
+        "slots": {
+          "item": "구찌"
+        },
+        "reset_slots": true,
+        "next_slot": "item",
+        "ready_for_search": false,
+        "usd": 0,
+        "budget_left": 99.953278
+      },
+      "violations": [],
+      "latency_ms": 2
+    },
+    {
+      "id": "out-of-scope",
+      "status": 200,
+      "body": {
+        "reply": "상담과 관련된 내용만 안내할 수 있습니다. 구찌 지갑의 모델·라인명을 알려주세요.",
+        "quick_replies": [],
+        "slots": {
+          "item": "구찌 지갑",
+          "category": "지갑",
+          "product_name": "",
+          "reference": ""
+        },
+        "next_slot": "variant",
+        "ready_for_search": false,
+        "usd": 0,
+        "budget_left": 99.953278
+      },
+      "violations": [],
+      "latency_ms": 17
+    },
+    {
+      "id": "impossible-symptom",
+      "status": 200,
+      "body": {
+        "reply": "롤렉스 서브마리너에는 지퍼가 없어 제품 정보와 증상이 맞지 않습니다. 다른 제품의 지퍼 고장인지, 서브마리너의 다른 부위 고장인지 확인해 주세요.",
+        "quick_replies": [],
+        "slots": {
+          "item": "롤렉스 서브마리너",
+          "category": "시계",
+          "variant": "",
+          "product_name": "서브마리너",
+          "reference": "확인 못 함",
+          "repair_area": "",
+          "symptom": "",
+          "photos": 0,
+          "history": "",
+          "goal": ""
+        },
+        "next_slot": "repair_area",
+        "ready_for_search": false,
+        "usd": 0.0005936000000000001,
+        "budget_left": 99.952684
+      },
+      "violations": [],
+      "latency_ms": 3307
+    },
+    {
+      "id": "unknown-reference",
+      "status": 200,
+      "body": {
+        "reply": "레퍼런스는 확인 못 함으로 기록하겠습니다. 수리할 부위를 알려주세요. 예를 들어 시간 오차·작동 멈춤·용두·베젤·유리·방수·브레이슬릿·버클 중 해당되는 위치를 말씀해 주세요.",
+        "quick_replies": [],
+        "slots": {
+          "item": "오메가 씨마스터",
+          "category": "시계",
+          "variant": "다이버 시계",
+          "product_name": "씨마스터",
+          "reference": "확인 못 함",
+          "repair_area": "",
+          "symptom": "",
+          "photos": 0,
+          "history": "",
+          "goal": ""
+        },
+        "next_slot": "repair_area",
+        "ready_for_search": false,
+        "usd": 0.0005958000000000001,
+        "budget_left": 99.952088
+      },
+      "violations": [],
+      "latency_ms": 3230
+    },
+    {
+      "id": "repair-location-followup",
+      "status": 200,
+      "body": {
+        "reply": "루이비통 네버풀 MM 손잡이의 어떤 증상이 있나요? 갈라짐, 끊어짐, 오염·변색, 형태 변형, 연결부 풀림처럼 해당되는 증상을 모두 알려주세요.",
+        "quick_replies": [
+          "손잡이 갈라짐",
+          "손잡이 끊어짐",
+          "손잡이 오염·변색",
+          "손잡이 형태 변형",
+          "손잡이 연결부 풀림"
+        ],
+        "slots": {
+          "item": "루이비통 네버풀 MM",
+          "category": "가방",
+          "variant": "토트백",
+          "product_name": "네버풀 MM",
+          "reference": "M40995",
+          "repair_area": "손잡이",
+          "symptom": "",
+          "photos": 0,
+          "history": "",
+          "goal": ""
+        },
+        "next_slot": "symptom",
+        "ready_for_search": false,
+        "usd": 0.0005734,
+        "budget_left": 99.951515
+      },
+      "violations": [],
+      "latency_ms": 2505
+    },
+    {
+      "id": "sell-mode-contract",
+      "status": 200,
+      "body": {
+        "reply": "에르메스 버킨 30의 구입 시기와 구입처를 알려주세요. 에르메스 정식 매장 구입 여부도 함께 말씀해 주세요.",
+        "quick_replies": [
+          "정식 매장",
+          "백화점 매장",
+          "병행수입",
+          "구입처 모름"
+        ],
+        "slots": {
+          "item": "에르메스 버킨 30",
+          "purchase": "",
+          "condition": "",
+          "evidence": "",
+          "photos": 0
+        },
+        "next_slot": "purchase",
+        "ready_for_search": false,
+        "usd": 0.0005964,
+        "budget_left": 99.950919
+      },
+      "violations": [],
+      "latency_ms": 1951
+    },
+    {
+      "id": "malformed-natural-input",
+      "status": 200,
+      "body": {
+        "reply": "프라다의 어떤 제품인가요? 가방, 지갑, 신발처럼 품목과 모델명이나 라인명을 알려주세요.",
+        "quick_replies": [],
+        "slots": {
+          "item": "프라다"
+        },
+        "reset_slots": true,
+        "next_slot": "item",
+        "ready_for_search": false,
+        "usd": 0,
+        "budget_left": 99.950919
+      },
+      "violations": [],
+      "latency_ms": 16
+    }
+  ]
+}
