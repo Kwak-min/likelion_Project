@@ -2095,6 +2095,10 @@ const Consult = {
             ['사진 없이 진행할게요']);
           break;
         case 4:
+          if(!c.photos.length && text !== '사진 없이 진행할게요'){
+            await Consult.reply('아직 사진이 첨부되지 않았습니다. 왼쪽 아래 카메라 버튼(📷)으로 실제 사진을 올려 주세요.\n\n사진 없이 진행하려면 아래 **사진 없이 진행할게요**를 선택해 주세요.', ['사진 없이 진행할게요']);
+            break;
+          }
           c.slots.photos = c.photos.length;
           c.step = 5; Consult.steps();
           $('#chatSub').textContent = '시세를 찾는 중입니다';
@@ -2104,7 +2108,11 @@ const Consult = {
       }
       return;
     }
-    if(c.step === 4){
+    if(Consult.SELL_ORDER[c.step] === 'photos'){
+      if(!c.photos.length && text !== '사진 없이 진행할게요'){
+        await Consult.ai('아직 사진이 첨부되지 않았습니다. 왼쪽 아래 카메라 버튼(📷)으로 실제 사진을 올려 주세요.\n\n사진 없이 진행하려면 아래 **사진 없이 진행할게요**를 선택해 주세요.', ['사진 없이 진행할게요']);
+        return;
+      }
       c.slots.photos = c.photos.length;
       c.step = 5; Consult.steps();
       $('#chatSub').textContent = '시세를 찾는 중입니다';
@@ -2136,6 +2144,10 @@ const Consult = {
             ['사진 없이 진행할게요']);
           break;
         case 2:
+          if(!c.photos.length && text !== '사진 없이 진행할게요'){
+            await Consult.reply('아직 사진이 첨부되지 않았습니다. 왼쪽 아래 카메라 버튼(📷)으로 실제 사진을 올려 주세요.\n\n사진 없이 진행하려면 아래 **사진 없이 진행할게요**를 선택해 주세요.', ['사진 없이 진행할게요']);
+            break;
+          }
           c.slots.photos = c.photos.length;
           c.step = 3; Consult.steps();
           $('#chatSub').textContent = '사용 이력';
@@ -2159,10 +2171,12 @@ const Consult = {
       }
       return;
     }
-    if(c.step === 2 && !text){
+    if(Consult.REPAIR_ORDER[c.step] === 'photos'){
+      if(!c.photos.length && text !== '사진 없이 진행할게요'){
+        await Consult.ai('아직 사진이 첨부되지 않았습니다. 왼쪽 아래 카메라 버튼(📷)으로 실제 사진을 올려 주세요.\n\n사진 없이 진행하려면 아래 **사진 없이 진행할게요**를 선택해 주세요.', ['사진 없이 진행할게요']);
+        return;
+      }
       c.slots.photos = c.photos.length;
-      c.step = 3; Consult.steps();
-      $('#chatSub').textContent = Consult.REPAIR_SUB.history;
     }
     await Consult.liveTurn(Consult.REPAIR_ORDER, Consult.REPAIR_SUB);
   },
@@ -2924,7 +2938,9 @@ const API = {
   signup(payload){ return API.post('/api/auth/signup', payload); },
   login(payload){ return API.post('/api/auth/login', payload); },
   consultMessage(mode, history, slots){
-    return API.post('/api/consult/message', {mode, history, slots});
+    /* 실제 첨부된 사진 수를 함께 보냅니다 — 서버가 AI가 말로만 채운 photos 를 실제 값으로 보정합니다 */
+    const photos = (S.consult?.photos || []).length;
+    return API.post('/api/consult/message', {mode, history, slots, photos});
   },
 
   /* --- 리포트 --- */
